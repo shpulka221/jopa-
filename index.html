@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Jump Up Mobile</title>
+<style>
+html,body{margin:0;padding:0;background:black;overflow:hidden;font-family:Arial;}
+#gameWrapper{position:relative;width:360px;height:640px;margin:auto;background:black;overflow:hidden;}
+canvas{display:block;}
+#menu,#gameover,#shop{position:absolute;width:100%;text-align:center;color:white;z-index:2;}
+#menu{top:10%;}
+#shop{top:5%;}
+#gameover{top:10%;}
+button{padding:10px 20px;margin:10px;font-size:16px;cursor:pointer;}
+.color-option{width:35px;height:35px;border-radius:50%;display:inline-block;margin:5px;border:2px solid white;}
+#coinsDisplay{position:absolute;top:5px;left:5px;color:yellow;font-size:18px;font-weight:bold;z-index:3;}
+#adminButton{position:absolute;top:40px;right:10px;z-index:5;background:purple;color:white;border:none;padding:8px;border-radius:5px;z-index:5;}
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+
+<div id="menu">
+<h1>JUMP UP</h1>
+<button onclick="startGame()">Начать игру</button>
+<button onclick="openShop()">Магазин</button>
+</div>
+
+<div id="shop" style="display:none;">
+<h1>Магазин</h1>
+<h3>Цвета шарика</h3>
+<div id="colorOptions"></div>
+<h3>Бонусы</h3>
+<div id="bonusOptions"></div>
+<button onclick="closeShop()">Назад</button>
+</div>
+
+<div id="gameover" style="display:none;">
+<h1>НУ ТЫ И ЛОХ</h1>
+<p id="finalScore"></p>
+<button onclick="restartGame()">Начать заново</button><br>
+<button onclick="showMenu()">Главное меню</button>
+</div>
+
+<div id="coinsDisplay">Монеты: 0</div>
+<button id="adminButton" onclick="addAdminCoins()">+100 монет</button>
+<canvas id="gameCanvas"></canvas>
+
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+canvas.width=360; canvas.height=640;
+
+// ------------------- ИГРОВЫЕ ПЕРЕМЕННЫЕ -------------------
+let player, platforms=[], bonusItems=[], score=0, gameStarted=false, gameOver=false, gameActivated=false;
+let coins=parseInt(localStorage.getItem("coins")||0);
+let record=parseInt(localStorage.getItem("record")||0);
+let playerColor=localStorage.getItem("ballColor")||"black";
+let fireParticles=[], showFire=false, fireTimer=0;
+let lastPlatformSpike=false;
+
+// ------------------- МАГАЗИН -------------------
+const colors=[
+{color:"black",price:0},{color:"white",price:0},{color:"pink",price:0},{color:"green",price:100},
+{color:"red",price:100},{color:"orange",price:100},{color:"blue",price:100},{color:"cyan",price:100}
+];
+const bonuses=[{name:"Стартовая ракета",id:"startRocket",price:200,owned:localStorage.getItem("owned_startRocket")}];
+
+function openShop(){document.getElementById("menu").style.display="none";document.getElementById("shop").style.display="block";renderShop();}
+function closeShop(){document.getElementById("shop").style.display="none";document.getElementById("menu").style.display="block";}
+function renderShop(){
+let container=document.getElementById("colorOptions"); container.innerHTML="";
+colors.forEach(c=>{
+let owned=c.price===0 || localStorage.getItem("owned_"+c.color);
+let div=document.createElement("div"); div.className="color-option"; div.style.background=c.color;
+div.onclick=()=>{buyColor(c.color,c.price)}; container.appendChild(div);
+if(!owned && c.price>0){let span=document.createElement("span");span.style.color="yellow";span.style.fontSize="12px";span.innerText=c.price;div.appendChild(span);}
+});
+let bonusContainer=document.getElementById("bonusOptions"); bonusContainer.innerHTML="";
+bonuses.forEach(b=>{let btn=document.createElement("button");btn.innerText=b.name+" ("+b.price+" монет)";btn.onclick=()=>buyBonus(b); if(b.owned){btn.innerText=b.name+" (куплено)";} bonusContainer.appendChild(btn);});
+}
+function buyColor(color,price){
+let owned=price===0 || localStorage.getItem("owned_"+color);
+if(!owned){if(coins>=price){coins-=price; localStorage.setItem("coins",coins); localStorage.setItem("owned_"+color,1); playerColor=color; localStorage.setItem("ballColor",color); launchFire(); renderShop(); updateCoins();} else alert("Не хватает монет!");}
+else{playerColor=color; localStorage.setItem("ballColor",color);}
+}
+function buyBonus(b){if(localStorage.getItem("owned_"+b.id))return; if(coins>=b.price){coins-=b.price; localStorage.setItem("coins",coins); localStorage.setItem("owned_"+b.id,1); b.owned=true; updateCoins(); renderShop();} else alert("Не хватает монет!");}
+
+// ------------------- САЛЮТ -------------------
+function launchFire(){
+fireParticles=[];
+for(let i=0;i<200;i++){fireParticles.push({x:180,y:150,dx:(Math.random()-0.5)*8,dy:(Math.random()-0.5)*8,life:60,color:`hsl(${Math.random()*360},100%,60%)`});}
+showFire=true; fireTimer=60;
+}
+
+// ------------------- ИНИЦИАЛИЗАЦИЯ -------------------
+function initGame(){
+player={x:180,y:580,radius:26,dy:-18,gravity:0.6,jumpPower:-22};
+platforms=[]; bonusItems=[]; score=0; gameOver=false; gameActivated=false;
+lastPlatformSpike=false;
+for(let i=0;i<7;i++){createPlatform(Math.random()*260,560-i*80);}
+if(localStorage.getItem("owned_startRocket")){player.dy=-25;}
+updateCoins();
+}
+
+// ------------------- ПЛАТФОРМЫ -------------------
+function createPlatform(x,y){
+let type="normal";
+if(score>=100){if(!lastPlatformSpike && Math.random()<0.25){type="spike"; lastPlatformSpike=true;} else {type="normal"; lastPlatformSpike=false;}}
+platforms.push({x,y,width:100,height:15,type});
+if(score>=100){
+let chance=Math.random();
+if(chance<0.1) bonusItems.push({x:x+50,y:y-30,type:"rocket",collected:false});
+else if(chance<0.25) bonusItems.push({x:x+50,y:y-20,type:"coin",collected:false});
+else if(chance<0.05) bonusItems.push({x:x+50,y:y-25,type:"bonus",collected:false});
+}
+}
+
+// ------------------- РИСОВКА -------------------
+function drawBackground(){let g=ctx.createLinearGradient(0,0,0,640); g.addColorStop(0,"rgba(255,100,200,0.4)"); g.addColorStop(1,"rgba(50,250,255,0.4)"); ctx.fillStyle=g; ctx.fillRect(0,0,360,640);}
+function drawPlayer(){ctx.beginPath();ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);ctx.fillStyle=playerColor;ctx.fill();}
+function drawPlatforms(){platforms.forEach(p=>{if(p.type==="normal"){ctx.fillStyle="white";ctx.fillRect(p.x,p.y,p.width,p.height);}else{ctx.fillStyle="red";for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(p.x+i*20,p.y+15);ctx.lineTo(p.x+10+i*20,p.y);ctx.lineTo(p.x+20+i*20,p.y+15);ctx.fill();}}});}
+function drawBonusItems(){bonusItems.forEach(b=>{if(!b.collected){ctx.beginPath();if(b.type==="rocket"){ctx.fillStyle="orange";ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-5,b.y+20);ctx.lineTo(b.x+5,b.y+20);ctx.fill();}else if(b.type==="coin"){ctx.fillStyle="yellow";ctx.arc(b.x,b.y,8,0,Math.PI*2);ctx.fill();}else if(b.type==="bonus"){ctx.fillStyle="lime";ctx.arc(b.x,b.y,8,0,Math.PI*2);ctx.fill();}}});}
+
+// ------------------- ФАЙЕР -------------------
+function updateFire(){if(showFire){fireParticles.forEach(p=>{p.x+=p.dx;p.y+=p.dy;p.life--;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4);});fireParticles=fireParticles.filter(p=>p.life>0);fireTimer--; if(fireTimer<=0) showFire=false;}}
+
+// ------------------- ОБНОВЛЕНИЕ -------------------
+function update(){
+ctx.clearRect(0,0,360,640); drawBackground();
+
+if(gameStarted && !gameOver){
+player.dy+=player.gravity; player.y+=player.dy;
+
+if(!gameActivated && player.y+player.radius>640){player.y=640-player.radius;player.dy=player.jumpPower;}
+
+platforms.forEach(p=>{
+if(player.y+player.radius>p.y && player.y+player.radius<p.y+p.height && player.x>p.x && player.x<p.x+p.width && player.dy>0){
+if(p.type==="spike"){endGame();}else{player.dy=player.jumpPower;gameActivated=true;}}});
+
+bonusItems.forEach(b=>{
+if(!b.collected && Math.abs(player.x-b.x)<20 && Math.abs(player.y-b.y)<20){
+b.collected=true;
+if(b.type==="coin"){coins++; localStorage.setItem("coins",coins); updateCoins();}
+if(b.type==="rocket"){player.dy=-30;}
+if(b.type==="bonus"){player.dy=-20;}}});
+
+if(player.y<300){platforms.forEach(p=>p.y+=Math.abs(player.dy));bonusItems.forEach(b=>b.y+=Math.abs(player.dy));player.y=300;}
+
+platforms=platforms.filter(p=>p.y<640); while(platforms.length<7){createPlatform(Math.random()*260,-20);}
+
+if(gameActivated && player.y>640){endGame();}
+
+drawPlatforms(); drawBonusItems(); drawPlayer();
+}
+
+updateFire();
+
+ctx.fillStyle="white"; ctx.font="16px Arial";
+if(gameStarted) ctx.fillText("Высота: "+Math.floor(score)+" м",10,20);
+ctx.fillText("Рекорд: "+record+" м",10,40);
+
+if(gameStarted) score+=0.1;
+
+requestAnimationFrame(update);
+}
+
+// ------------------- ПРОИГРЫШ -------------------
+function endGame(){gameOver=true;
+if(Math.floor(score)>record){record=Math.floor(score); localStorage.setItem("record",record);launchFire(); alert("КРАСАВА, ТЫ ПОБИЛ СВОЙ РЕКОРД!");}
+document.getElementById("gameover").style.display="block";
+document.getElementById("finalScore").innerText="Твоя высота: "+Math.floor(score)+" м\nМонеты: "+coins;
+}
+
+// ------------------- НАВИГАЦИЯ -------------------
+function startGame(){document.getElementById("menu").style.display="none";gameStarted=true;initGame();}
+function restartGame(){document.getElementById("gameover").style.display="none";initGame();}
+function showMenu(){document.getElementById("gameover").style.display="none";document.getElementById("menu").style.display="block";gameStarted=false;}
+function updateCoins(){document.getElementById("coinsDisplay").innerText="Монеты: "+coins;}
+function addAdminCoins(){coins+=100; localStorage.setItem("coins",coins); updateCoins();}
+
+// ------------------- УПРАВЛЕНИЕ -------------------
+canvas.addEventListener("touchmove",e=>{
+if(!gameStarted) return;
+const rect=canvas.getBoundingClientRect();
+player.x=e.touches[0].clientX-rect.left;
+if(player.x<player.radius)player.x=player.radius;
+if(player.x>360-player.radius)player.x=360-player.radius;
+});
+
+initGame(); update();
+</script>
+</body>
+</html>
