@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cosmo Cafe 4.0</title>
+<style>
+html,body{margin:0;padding:0;font-family:Arial,sans-serif;overflow:hidden;background:#f5e5c0;}
+#gameWrapper{position:relative;width:360px;height:640px;margin:auto;background:#f5e5c0;overflow:hidden;border:2px solid #000;}
+canvas{display:block;}
+#menu,#gameover,#shop{position:absolute;width:100%;text-align:center;color:white;z-index:5;}
+#menu{top:10%;}
+#shop{top:5%;display:none;color:black;}
+#gameover{top:10%;display:none;}
+button{padding:10px 20px;margin:5px;font-size:14px;cursor:pointer;border-radius:5px;}
+#coinsDisplay{position:absolute;top:5px;left:5px;color:yellow;font-weight:bold;z-index:10;}
+#levelDisplay{position:absolute;top:25px;left:5px;color:white;font-weight:bold;z-index:10;}
+#adminButton{position:absolute;top:45px;right:5px;z-index:10;background:purple;color:white;border:none;padding:8px;border-radius:5px;}
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+<div id="menu">
+<h1>Cosmo Cafe 4.0 ☕🚀</h1>
+<button onclick="startGame()">Начать игру</button>
+<button onclick="openShop()">Магазин</button>
+</div>
+
+<div id="shop">
+<h1>Магазин</h1>
+<h3>Столы</h3>
+<div id="tableOptions"></div>
+<h3>Печи</h3>
+<div id="ovenOptions"></div>
+<h3>Кастрюли</h3>
+<div id="panOptions"></div>
+<button onclick="closeShop()">Назад</button>
+</div>
+
+<div id="gameover">
+<h1>НУ ТЫ И ЛОХ</h1>
+<p id="finalScore"></p>
+<button onclick="restartGame()">Начать заново</button><br>
+<button onclick="showMenu()">Главное меню</button>
+</div>
+
+<div id="coinsDisplay">Монеты: 0</div>
+<div id="levelDisplay">Уровень: 1</div>
+<button id="adminButton" onclick="addAdminCoins()">+100 монет</button>
+<canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+canvas.width=360; canvas.height=640;
+
+// ------------------- ПЕРЕМЕННЫЕ -------------------
+let player={x:180,y:550,width:30,height:50,speed:5};
+let tables=[],ovens=[],pans=[],visitors=[],orders=[],coins=parseInt(localStorage.getItem("coins")||0);
+let score=0,level=1,maxLevel=10,gameStarted=false,gameOverFlag=false;
+let tableOptions=[{name:"2 места",price:200},{name:"4 места",price:400}];
+let ovenOptions=[{name:"Обычная",price:500},{name:"LUXE",price:1500},{name:"VIP",price:3000}];
+let panOptions=[{name:"Кастрюля",price:300},{name:"Супер кастрюля",price:1000}];
+
+// ------------------- МАГАЗИН -------------------
+function openShop(){document.getElementById("menu").style.display="none";document.getElementById("shop").style.display="block";renderShop();}
+function closeShop(){document.getElementById("shop").style.display="none";document.getElementById("menu").style.display="block";}
+function renderShop(){
+let tableDiv=document.getElementById("tableOptions"); tableDiv.innerHTML="";
+tableOptions.forEach(t=>{let btn=document.createElement("button");btn.innerText=t.name+" ("+t.price+")"; btn.onclick=()=>buyItem("table",t); tableDiv.appendChild(btn);});
+let ovenDiv=document.getElementById("ovenOptions"); ovenDiv.innerHTML="";
+ovenOptions.forEach(o=>{let btn=document.createElement("button");btn.innerText=o.name+" ("+o.price+")"; btn.onclick=()=>buyItem("oven",o); ovenDiv.appendChild(btn);});
+let panDiv=document.getElementById("panOptions"); panDiv.innerHTML="";
+panOptions.forEach(p=>{let btn=document.createElement("button");btn.innerText=p.name+" ("+p.price+")"; btn.onclick=()=>buyItem("pan",p); panDiv.appendChild(btn);});
+}
+function buyItem(type,item){
+if(coins>=item.price){coins-=item.price; localStorage.setItem("coins",coins); updateCoins(); alert(item.name+" куплен!");}else alert("Не хватает монет!");
+}
+
+// ------------------- ИГРОВОЙ ЦИКЛ -------------------
+function startGame(){document.getElementById("menu").style.display="none";initGame();gameStarted=true;update();}
+function restartGame(){document.getElementById("gameover").style.display="none";initGame();gameStarted=true;update();}
+function showMenu(){document.getElementById("gameover").style.display="none";document.getElementById("menu").style.display="block";gameStarted=false;}
+
+function initGame(){
+player.x=180; score=0; level=1; visitors=[]; orders=[]; tables=[{x:50,y:400,width:80,height:50},{x:200,y:400,width:80,height:50}]; ovens=[{x:50,y:520,width:50,height:50}]; pans=[{x:150,y:520,width:50,height:50}];
+}
+
+// ------------------- ОТРИСОВКА -------------------
+function drawBackground(){ctx.fillStyle="#f5e5c0"; ctx.fillRect(0,0,360,640); ctx.fillStyle="#a2ffa2"; ctx.fillRect(0,0,360,100);} // стены с обоями
+function drawPlayer(){ctx.fillStyle="blue"; ctx.fillRect(player.x,player.y,player.width,player.height);}
+function drawTables(){tables.forEach(t=>{ctx.fillStyle="#8B4513"; ctx.fillRect(t.x,t.y,t.width,t.height); ctx.fillStyle="white"; ctx.fillText("Стол",t.x+5,t.y+30);});}
+function drawOvens(){ovens.forEach(o=>{ctx.fillStyle="red"; ctx.fillRect(o.x,o.y,o.width,o.height); ctx.fillStyle="white"; ctx.fillText("Печь",o.x+2,o.y+30);});}
+function drawPans(){pans.forEach(p=>{ctx.fillStyle="orange"; ctx.fillRect(p.x,p.y,p.width,p.height); ctx.fillStyle="white"; ctx.fillText("Кастрюля",p.x+2,p.y+30);});}
+function drawVisitors(){visitors.forEach(v=>{ctx.fillStyle="pink"; ctx.fillRect(v.x,v.y,20,40); ctx.fillStyle="black"; ctx.fillText(v.order,v.x-5,v.y-5);});}
+
+// ------------------- ОБНОВЛЕНИЕ -------------------
+function update(){
+ctx.clearRect(0,0,360,640);
+drawBackground(); drawTables(); drawOvens(); drawPans(); drawVisitors();
+ctx.fillStyle="black"; ctx.font="16px Arial"; ctx.fillText("Монеты: "+coins,10,20); ctx.fillText("Уровень: "+level,10,40);
+if(!gameOverFlag) requestAnimationFrame(update);
+}
+
+// ------------------- УПРАВЛЕНИЕ -------------------
+canvas.addEventListener("touchmove",e=>{const rect=canvas.getBoundingClientRect();player.x=e.touches[0].clientX-rect.left;if(player.x<0)player.x=0;if(player.x>360-player.width)player.x=360-player.width;});
+
+// ------------------- АДМИН -------------------
+function addAdminCoins(){coins+=100; localStorage.setItem("coins",coins); updateCoins();}
+function updateCoins(){document.getElementById("coinsDisplay").innerText="Монеты: "+coins;}
+updateCoins();
+</script>
+</body>
+</html>
