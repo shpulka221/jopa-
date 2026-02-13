@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NEON JUMP</title>
+<style>
+body{
+margin:0;
+overflow:hidden;
+background:#0a0a0f;
+font-family:Arial;
+color:white;
+}
+canvas{
+display:block;
+}
+#ui{
+position:absolute;
+top:10px;
+left:0;
+width:100%;
+text-align:center;
+font-size:18px;
+}
+#menu{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+}
+button{
+padding:10px 20px;
+margin:10px;
+background:#111;
+border:2px solid #00ffff;
+color:#00ffff;
+font-size:18px;
+}
+#shop{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:#000;
+display:none;
+overflow:auto;
+padding-top:60px;
+text-align:center;
+}
+.shopItem{
+margin:15px;
+border:1px solid #0ff;
+padding:10px;
+}
+#recordText{
+position:absolute;
+top:40%;
+width:100%;
+text-align:center;
+font-size:30px;
+color:#0ff;
+display:none;
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+Score: <span id="score">0</span> |
+Coins: <span id="coins">0</span> |
+Best: <span id="best">0</span>
+</div>
+
+<div id="recordText">🔥 NEW RECORD 🔥</div>
+
+<div id="menu">
+<h1 style="color:#0ff">NEON JUMP</h1>
+<button onclick="startGame()">START</button>
+<button onclick="openShop()">SHOP</button>
+</div>
+
+<div id="shop">
+<h2>SHOP</h2>
+<div id="shopItems"></div>
+<button onclick="closeShop()">BACK</button>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+let gravity=0.4;
+let jumpPower=12;
+let speed=6;
+
+let player={
+x:canvas.width/2,
+y:canvas.height-150,
+w:30,
+h:30,
+vy:0,
+color:"#0ff",
+trail:false,
+hat:false
+};
+
+let platforms=[];
+let coins=[];
+let score=0;
+let best=localStorage.best?parseInt(localStorage.best):0;
+let playerCoins=localStorage.coins?parseInt(localStorage.coins):0;
+
+document.getElementById("best").innerText=best;
+document.getElementById("coins").innerText=playerCoins;
+
+let touching=false;
+let touchX=0;
+
+function createPlatform(y){
+platforms.push({
+x:Math.random()*(canvas.width-80),
+y:y,
+w:80,
+h:10
+});
+}
+
+for(let i=0;i<10;i++){
+createPlatform(canvas.height-i*80);
+}
+
+function createCoin(y){
+coins.push({
+x:Math.random()*(canvas.width-20),
+y:y,
+r:8
+});
+}
+
+function startGame(){
+score=0;
+player.y=canvas.height-150;
+player.vy=0;
+platforms=[];
+coins=[];
+for(let i=0;i<10;i++){
+createPlatform(canvas.height-i*80);
+createCoin(canvas.height-i*120);
+}
+document.getElementById("menu").style.display="none";
+gameLoop();
+}
+
+function gameLoop(){
+ctx.fillStyle="#0a0a0f";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+player.vy+=gravity;
+player.y+=player.vy;
+
+if(touching){
+let dx=touchX-player.x;
+player.x+=dx*0.1;
+}
+
+if(player.x<0)player.x=0;
+if(player.x+player.w>canvas.width)player.x=canvas.width-player.w;
+
+platforms.forEach(p=>{
+if(player.y+player.h>p.y && player.y+player.h<p.y+10 && player.x+player.w>p.x && player.x<p.x+p.w && player.vy>0){
+player.vy=-jumpPower;
+}
+});
+
+platforms.forEach(p=>p.y+=2);
+coins.forEach(c=>c.y+=2);
+
+if(player.y<canvas.height/2){
+let diff=canvas.height/2-player.y;
+player.y=canvas.height/2;
+platforms.forEach(p=>p.y+=diff);
+coins.forEach(c=>c.y+=diff);
+score+=Math.floor(diff);
+}
+
+if(platforms[0].y>canvas.height){
+platforms.shift();
+createPlatform(0);
+}
+
+coins.forEach((c,i)=>{
+if(Math.hypot(player.x-c.x,player.y-c.y)<20){
+playerCoins+=1;
+document.getElementById("coins").innerText=playerCoins;
+localStorage.coins=playerCoins;
+coins.splice(i,1);
+}
+});
+
+ctx.shadowBlur=20;
+ctx.shadowColor=player.color;
+ctx.fillStyle=player.color;
+ctx.fillRect(player.x,player.y,player.w,player.h);
+
+if(player.hat){
+ctx.fillStyle="#fff";
+ctx.fillRect(player.x+5,player.y-10,20,10);
+}
+
+platforms.forEach(p=>{
+ctx.shadowColor="#0ff";
+ctx.fillStyle="#0ff";
+ctx.fillRect(p.x,p.y,p.w,p.h);
+});
+
+coins.forEach(c=>{
+ctx.shadowColor="#ff0";
+ctx.fillStyle="#ff0";
+ctx.beginPath();
+ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+ctx.fill();
+});
+
+document.getElementById("score").innerText=score;
+
+if(player.y>canvas.height){
+endGame();
+return;
+}
+
+requestAnimationFrame(gameLoop);
+}
+
+function endGame(){
+if(score>best){
+best=score;
+localStorage.best=best;
+playerCoins+=50;
+document.getElementById("coins").innerText=playerCoins;
+localStorage.coins=playerCoins;
+document.getElementById("recordText").style.display="block";
+setTimeout(()=>document.getElementById("recordText").style.display="none",2000);
+}
+document.getElementById("best").innerText=best;
+document.getElementById("menu").style.display="flex";
+}
+
+canvas.addEventListener("touchstart",e=>{
+touching=true;
+touchX=e.touches[0].clientX;
+});
+canvas.addEventListener("touchmove",e=>{
+touchX=e.touches[0].clientX;
+});
+canvas.addEventListener("touchend",()=>{
+touching=false;
+});
+
+function openShop(){
+document.getElementById("shop").style.display="block";
+document.getElementById("menu").style.display="none";
+renderShop();
+}
+
+function closeShop(){
+document.getElementById("shop").style.display="none";
+document.getElementById("menu").style.display="flex";
+}
+
+let items=[
+{name:"Red Skin",price:50,action:()=>player.color="#f00"},
+{name:"Green Skin",price:50,action:()=>player.color="#0f0"},
+{name:"Trail",price:100,action:()=>player.trail=true},
+{name:"Hat",price:150,action:()=>player.hat=true},
+{name:"Jump Upgrade",price:200,action:()=>jumpPower+=2},
+{name:"Speed Upgrade",price:200,action:()=>speed+=1}
+];
+
+function renderShop(){
+let container=document.getElementById("shopItems");
+container.innerHTML="";
+items.forEach(item=>{
+let div=document.createElement("div");
+div.className="shopItem";
+div.innerHTML=`${item.name} - ${item.price} coins <br>
+<button onclick="buyItem('${item.name}')">BUY</button>`;
+container.appendChild(div);
+});
+}
+
+function buyItem(name){
+let item=items.find(i=>i.name===name);
+if(playerCoins>=item.price){
+playerCoins-=item.price;
+localStorage.coins=playerCoins;
+document.getElementById("coins").innerText=playerCoins;
+item.action();
+}
+}
+
+</script>
+</body>
+</html>
