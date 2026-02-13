@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON JUMP V7</title>
+<style>
+body{margin:0;overflow:hidden;background:#050510;font-family:Arial;color:white;}
+canvas{display:block;}
+#ui{position:fixed;top:10px;left:10px;z-index:10;}
+button{background:#111;color:#0ff;border:1px solid #0ff;padding:8px 12px;margin:3px;cursor:pointer;}
+#shop{position:fixed;bottom:0;left:0;right:0;background:#000c;max-height:50%;overflow:auto;display:none;padding:10px;}
+.item{display:flex;justify-content:space-between;margin:5px 0;}
+#record{position:fixed;top:40%;width:100%;text-align:center;font-size:32px;color:#0ff;display:none;z-index:20;}
+</style>
+</head>
+<body>
+
+<div id="ui">
+<div id="score">Очки: 0</div>
+<div id="coins">Монеты: 0</div>
+<button onclick="toggleShop()">Магазин</button>
+</div>
+
+<div id="shop"></div>
+<div id="record">🔥 НОВЫЙ РЕКОРД! +200 МОНЕТ 🔥</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+let gravity=0.6;
+let jumpPower=15;
+let speedBoost=0;
+let doubleCoins=false;
+let shield=false;
+let rainbow=false;
+let trailType=0;
+
+let score=0;
+let best=localStorage.best?parseInt(localStorage.best):0;
+let coins=localStorage.coins?parseInt(localStorage.coins):0;
+
+let player={
+x:canvas.width/2,
+y:canvas.height-200,
+w:30,
+h:30,
+vy:0,
+color:"#0ff",
+hat:0
+};
+
+let platforms=[];
+let spikes=[];
+let coinsArr=[];
+let touchX=null;
+let playing=true;
+
+function spawnPlatform(y){
+let width=80+Math.random()*50;
+let x=Math.random()*(canvas.width-width);
+let breakable=Math.random()<0.2;
+platforms.push({x,y,width,breakable});
+if(Math.random()<0.3) coinsArr.push({x:x+20,y:y-30,r:8});
+if(Math.random()<0.15) spikes.push({x:x+width/2-10,y:y-15,w:20,h:15});
+}
+
+// Начальные платформы
+for(let i=0;i<10;i++) spawnPlatform(canvas.height-i*120);
+
+// Музыка
+let music=new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_115b9b7b75.mp3?filename=cyberpunk-11264.mp3");
+music.loop=true;
+music.volume=0.4;
+music.play().catch(()=>{});
+
+function loop(){
+if(!playing)return;
+
+ctx.fillStyle="#050510";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+// движение игрока
+player.vy+=gravity;
+player.y+=player.vy;
+
+if(touchX!==null){
+player.x+=(touchX-player.x-player.w/2)*(0.2+speedBoost);
+}
+if(player.x<0) player.x=0;
+if(player.x+player.w>canvas.width) player.x=canvas.width-player.w;
+
+// Камера: куб поднимается
+const midScreen=canvas.height/2;
+if(player.y<midScreen){
+let diff=midScreen-player.y;
+player.y=midScreen;
+platforms.forEach(p=>p.y+=diff);
+spikes.forEach(s=>s.y+=diff);
+coinsArr.forEach(c=>c.y+=diff);
+score+=Math.floor(diff/2);
+}
+
+// Платформы
+platforms.forEach((p,i)=>{
+ctx.fillStyle=p.breakable?"#ff8800":"#0ff";
+ctx.fillRect(p.x,p.y,p.width,10);
+
+if(player.vy>0 &&
+player.x+player.w>p.x &&
+player.x<p.x+p.width &&
+player.y+player.h>p.y &&
+player.y+player.h<p.y+15){
+player.vy=-jumpPower;
+if(p.breakable) platforms.splice(i,1);
+if(doubleCoins) coins+=2; else coins++;
+coinsArr.push({x:Math.random()*(canvas.width-20),y:p.y-30,r:8});
+}
+});
+
+// Шипы
+spikes.forEach((s,i)=>{
+ctx.fillStyle="red";
+ctx.beginPath();
+ctx.moveTo(s.x,s.y+s.h);
+ctx.lineTo(s.x+s.w/2,s.y);
+ctx.lineTo(s.x+s.w,s.y+s.h);
+ctx.fill();
+
+if(!shield &&
+player.x+player.w>s.x &&
+player.x<s.x+s.w &&
+player.y+player.h>s.y){
+playing=false;
+endGame();
+}
+});
+
+// Монеты
+coinsArr.forEach((c,i)=>{
+ctx.fillStyle="#ff0";
+ctx.beginPath();
+ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+ctx.fill();
+if(Math.hypot(player.x+player.w/2-c.x,player.y+player.h/2-c.y)<20){
+coinsArr.splice(i,1);
+if(doubleCoins) coins+=2; else coins++;
+}
+});
+
+// Генерация платформ при поднятии
+if(platforms[platforms.length-1].y>50) spawnPlatform(0);
+
+// Игрок
+if(rainbow) player.color=`hsl(${Date.now()/10%360},100%,50%)`;
+ctx.fillStyle=player.color;
+ctx.fillRect(player.x,player.y,player.w,player.h);
+
+// Шапки
+if(player.hat===1){ctx.fillStyle="#fff";ctx.fillRect(player.x+5,player.y-10,20,8);}
+if(player.hat===2){ctx.fillStyle="#ffd700";ctx.fillRect(player.x+5,player.y-12,20,10);}
+if(player.hat===3){ctx.strokeStyle="#0ff";ctx.beginPath();ctx.arc(player.x+15,player.y+15,25,0,Math.PI*2);ctx.stroke();}
+
+document.getElementById("score").innerText="Очки: "+Math.floor(score);
+document.getElementById("coins").innerText="Монеты: "+coins;
+
+requestAnimationFrame(loop);
+}
+
+function endGame(){
+document.getElementById("record").style.display="block";
+if(score>best){
+best=Math.floor(score);
+localStorage.best=best;
+coins+=200;
+localStorage.coins=coins;
+setTimeout(()=>document.getElementById("record").style.display="none",2000);
+}else{
+setTimeout(()=>document.getElementById("record").style.display="none",2000);
+}
+localStorage.coins=coins;
+setTimeout(()=>location.reload(),2000);
+}
+
+canvas.addEventListener("touchstart",e=>{touchX=e.touches[0].clientX;});
+canvas.addEventListener("touchmove",e=>{touchX=e.touches[0].clientX;});
+canvas.addEventListener("touchend",()=>touchX=null);
+
+// Магазин
+let shopItems=[
+{title:"Красный скин",price:100,action:()=>player.color="#ff0000"},
+{title:"Зелёный скин",price:100,action:()=>player.color="#00ff00"},
+{title:"Фиолетовый",price:200,action:()=>player.color="#b300ff"},
+{title:"Золотой",price:400,action:()=>player.color="#ffd700"},
+{title:"Радужный",price:600,action:()=>rainbow=true},
+{title:"+Прыжок",price:300,action:()=>jumpPower+=3},
+{title:"+Скорость",price:300,action:()=>speedBoost=0.3},
+{title:"Двойные монеты",price:500,action:()=>doubleCoins=true},
+{title:"Щит 5 сек",price:350,action:()=>{shield=true;setTimeout(()=>shield=false,5000);}},
+{title:"Кепка",price:200,action:()=>player.hat=1},
+{title:"Корона",price:500,action:()=>player.hat=2},
+{title:"Аура",price:450,action:()=>player.hat=3}
+];
+
+function toggleShop(){
+let s=document.getElementById("shop");
+s.style.display=s.style.display==="block"?"none":"block";
+renderShop();
+}
+
+function renderShop(){
+let s=document.getElementById("shop");
+s.innerHTML="";
+shopItems.forEach((item,i)=>{
+let div=document.createElement("div");
+div.className="item";
+let btn=document.createElement("button");
+btn.innerText="Купить";
+btn.onclick=()=>{
+if(coins>=item.price){coins-=item.price;item.action();}else alert("Недостаточно монет");};
+div.innerHTML=`<span>${item.title} - ${item.price}</span>`;
+div.appendChild(btn);
+s.appendChild(div);
+});
+}
+
+loop();
+</script>
+</body>
+</html>
