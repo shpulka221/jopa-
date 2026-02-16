@@ -1,0 +1,2456 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>LEVEL RUSH — Mobile</title>
+  <style>
+    :root{
+      --bg0:#050611;
+      --bg1:#090b1a;
+      --bg2:#141a33;
+
+      --glass: rgba(255,255,255,.075);
+      --glass2: rgba(255,255,255,.05);
+      --stroke: rgba(255,255,255,.12);
+
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+
+      --acc:#7AA7FF;
+      --acc2:#B47CFF;
+
+      --good:#7CFFB2;
+      --warn:#FFD56A;
+      --bad:#FF6B8B;
+
+      --shadow: 0 22px 90px rgba(0,0,0,.55);
+    }
+
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body{ margin:0; height:100%; background: var(--bg0); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body{ overflow:hidden; }
+
+    canvas#game{
+      position:fixed; inset:0;
+      width:100vw; height:100vh;
+      display:block;
+      background:
+        radial-gradient(1200px 720px at 18% 18%, rgba(122,167,255,.18), rgba(0,0,0,0) 58%),
+        radial-gradient(1200px 760px at 86% 22%, rgba(180,124,255,.16), rgba(0,0,0,0) 60%),
+        radial-gradient(900px 700px at 70% 85%, rgba(255,213,106,.08), rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, #080a16, #050611);
+      z-index:0;
+      touch-action:none;
+    }
+
+    /* HUD */
+    .hud{
+      position:fixed;
+      left:12px; right:12px;
+      top: calc(10px + env(safe-area-inset-top));
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      pointer-events:none;
+      z-index:3;
+    }
+
+    .hudBox{
+      pointer-events:auto;
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.035));
+      border:1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .hudBox::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(800px 280px at 20% 0%, rgba(122,167,255,.20), rgba(0,0,0,0) 65%),
+        radial-gradient(800px 280px at 88% 10%, rgba(180,124,255,.18), rgba(0,0,0,0) 65%);
+      opacity:.9;
+      pointer-events:none;
+    }
+
+    .stats{
+      position:relative;
+      padding:10px 12px 12px;
+      min-width: 214px;
+      max-width: 60vw;
+    }
+
+    .line{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+      position:relative;
+      z-index:1;
+    }
+    .line b{ color:var(--text); font-weight:950; }
+    .mono{ font-variant-numeric: tabular-nums; }
+
+    .bars{
+      margin-top:8px;
+      display:flex;
+      flex-direction:column;
+      gap:7px;
+      position:relative;
+      z-index:1;
+    }
+    .bar{
+      height:9px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block; height:100%;
+      width:60%;
+      border-radius:999px;
+      background: linear-gradient(90deg, var(--acc), var(--acc2));
+      box-shadow: 0 0 18px rgba(122,167,255,.28);
+    }
+    .bar.hp > i{
+      background: linear-gradient(90deg, var(--good), #2EE59D);
+      box-shadow: 0 0 18px rgba(124,255,178,.20);
+    }
+    .bar.sh > i{
+      background: linear-gradient(90deg, rgba(122,167,255,.95), rgba(180,124,255,.95));
+      box-shadow: 0 0 18px rgba(180,124,255,.16);
+    }
+
+    .hudRight{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      max-width: 44vw;
+      pointer-events:auto;
+    }
+
+    .btn{
+      border:1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      color:var(--text);
+      height:42px;
+      padding:0 12px;
+      border-radius: 16px;
+      font-weight:950;
+      font-size:13px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+      user-select:none;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn.primary{
+      border-color: rgba(122,167,255,.30);
+      background: linear-gradient(180deg, rgba(122,167,255,.18), rgba(180,124,255,.10));
+    }
+    .btn.warn{
+      border-color: rgba(255,213,106,.30);
+      background: linear-gradient(180deg, rgba(255,213,106,.18), rgba(255,213,106,.08));
+    }
+    .btn.danger{
+      border-color: rgba(255,107,139,.30);
+      background: linear-gradient(180deg, rgba(255,107,139,.18), rgba(255,107,139,.08));
+    }
+
+    /* Skill indicator chips */
+    .skillHUD{
+      position:fixed;
+      right:12px;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      z-index:3;
+      pointer-events:none;
+    }
+    .skillChip{
+      width:58px;
+      height:58px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .skillChip::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background: radial-gradient(220px 120px at 30% 0%, rgba(122,167,255,.20), rgba(0,0,0,0) 70%);
+      opacity:.9;
+    }
+    .skillChip .ico{ position:relative; font-size:20px; z-index:1; }
+    .skillChip .cd{
+      position:absolute; inset:0;
+      background: rgba(0,0,0,.42);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:950;
+      font-size:14px;
+      opacity:0;
+      transition: opacity .12s ease;
+      z-index:2;
+    }
+    .skillChip.cool .cd{ opacity:1; }
+    .skillChip .hint{
+      position:absolute; left:8px; right:8px; bottom:6px;
+      font-size:10px;
+      color: rgba(255,255,255,.72);
+      text-align:center;
+      font-weight:900;
+      z-index:1;
+    }
+
+    /* Toast */
+    .toast{
+      position:fixed;
+      left:12px; right:12px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      display:flex;
+      justify-content:center;
+      z-index:20;
+      pointer-events:none;
+    }
+    .toast > div{
+      max-width: min(620px, 100%);
+      background: rgba(10,12,20,.78);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,.90);
+      border-radius: 18px;
+      padding:10px 12px;
+      font-size:13px;
+      font-weight:900;
+      box-shadow: 0 20px 80px rgba(0,0,0,.55);
+      transform: translateY(14px);
+      opacity:0;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .toast.show > div{ transform: translateY(0); opacity:1; }
+
+    /* Overlays */
+    .overlay{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      z-index:10;
+    }
+    .overlay.show{ display:flex; }
+
+    .panel{
+      width:min(680px, 100%);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 30px 110px rgba(0,0,0,.65);
+      overflow:hidden;
+      position:relative;
+    }
+    .panel::before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(900px 420px at 18% 0%, rgba(122,167,255,.20), rgba(0,0,0,0) 55%),
+        radial-gradient(900px 420px at 88% 10%, rgba(180,124,255,.18), rgba(0,0,0,0) 55%),
+        radial-gradient(900px 420px at 50% 110%, rgba(255,213,106,.10), rgba(0,0,0,0) 55%);
+      pointer-events:none;
+      opacity:.95;
+    }
+    .panelHeader{
+      position:relative;
+      padding:14px 14px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      z-index:1;
+    }
+    .panelHeader h2{
+      margin:0;
+      font-size:16px;
+      font-weight:950;
+      letter-spacing:.2px;
+    }
+    .panelHeader p{
+      margin:4px 0 0;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.25;
+    }
+    .panelBody{ position:relative; padding:12px 14px 14px; z-index:1; }
+
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .card{
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding:12px;
+    }
+    .card h3{ margin:0 0 6px; font-size:13px; font-weight:950; }
+    .card p{ margin:0 0 10px; font-size:12px; color:var(--muted); line-height:1.35; }
+    .row2{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .tag{
+      font-size:11px;
+      color:rgba(255,255,255,.78);
+      padding:5px 9px;
+      border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      font-weight:900;
+    }
+    .price{ font-weight:950; color:var(--warn); }
+    .wide{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .wide .btn{ flex:1; justify-content:center; }
+    .input{
+      width:100%;
+      padding:12px 12px;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-size:14px;
+    }
+
+    /* Chest open overlay */
+    .openAnim{
+      position:absolute; inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      gap:12px;
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(6px);
+      z-index:30;
+    }
+    .openAnim.show{ display:flex; }
+    .chestBox{
+      width:120px; height:120px;
+      border-radius: 26px;
+      border:1px solid rgba(255,255,255,.16);
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
+      box-shadow: 0 28px 110px rgba(0,0,0,.65);
+      display:flex; align-items:center; justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .chestBox::before{
+      content:"";
+      position:absolute; inset:-40px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,213,106,.22), rgba(0,0,0,0) 55%),
+        radial-gradient(circle at 70% 40%, rgba(180,124,255,.18), rgba(0,0,0,0) 60%);
+      transform: rotate(12deg);
+      opacity:.95;
+    }
+    .chestIcon{
+      position:relative;
+      font-size:52px;
+      filter: drop-shadow(0 14px 24px rgba(0,0,0,.55));
+    }
+    .shake{ animation: shake .55s ease-in-out; }
+    @keyframes shake{
+      0%{ transform: translate(0,0) rotate(0deg); }
+      20%{ transform: translate(-3px,2px) rotate(-2deg); }
+      40%{ transform: translate(4px,-2px) rotate(2deg); }
+      60%{ transform: translate(-2px,-2px) rotate(-2deg); }
+      80%{ transform: translate(3px,1px) rotate(2deg); }
+      100%{ transform: translate(0,0) rotate(0deg); }
+    }
+    .animText{
+      font-size:13px;
+      color:rgba(255,255,255,.88);
+      font-weight:950;
+      text-align:center;
+      padding:0 12px;
+    }
+
+    @media (max-width: 420px){
+      .stats{ min-width: 200px; max-width: 64vw; }
+      .btn{ height:40px; font-size:12.5px; border-radius: 15px; }
+      .skillChip{ width:54px; height:54px; border-radius: 18px; }
+      .grid{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="hudBox stats">
+      <div class="line">
+        <div>Ур. <b class="mono" id="uiLevel">1</b> <span id="uiStage" style="margin-left:8px; color:rgba(255,255,255,.62)"></span></div>
+        <div>💰 <b class="mono" id="uiCoins">0</b></div>
+      </div>
+      <div class="bars">
+        <div class="bar hp"><i id="uiHpBar"></i></div>
+        <div class="bar sh"><i id="uiShieldBar"></i></div>
+        <div class="bar"><i id="uiXpBar"></i></div>
+      </div>
+      <div class="line" style="margin-top:8px;">
+        <div>HP: <b class="mono" id="uiHpText">0/0</b></div>
+        <div>🔑 <b class="mono" id="uiKeys">0</b></div>
+      </div>
+      <div class="line">
+        <div>XP: <b class="mono" id="uiXpText">0/0</b></div>
+        <div>Щит: <b class="mono" id="uiShieldText">0</b></div>
+      </div>
+    </div>
+
+    <div class="hudRight">
+      <button class="btn primary" id="btnShop">🛍️ Магазин</button>
+      <button class="btn warn" id="btnChest">🎁 Сундуки</button>
+      <button class="btn" id="btnUpgrades">⚙️ Прокачка</button>
+      <button class="btn danger" id="btnMenu">☰ Меню</button>
+    </div>
+  </div>
+
+  <div class="skillHUD">
+    <div class="skillChip" id="chipDash"><div class="ico">💨</div><div class="cd" id="cdDash">0.0</div><div class="hint">рывок</div></div>
+    <div class="skillChip" id="chipShield"><div class="ico">🛡️</div><div class="cd" id="cdShield">0.0</div><div class="hint">щит</div></div>
+  </div>
+
+  <div class="toast" id="toast"><div id="toastText">—</div></div>
+
+  <!-- Start -->
+  <div class="overlay show" id="startOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>LEVEL RUSH</h2>
+          <p>Управление: <b>веди пальцем</b> — движение, <b>тап</b> — атака, <b>быстрый свайп</b> — рывок, <b>тап 2 пальцами</b> — щит.</p>
+        </div>
+        <button class="btn" id="btnResetSave">🧨 Сброс</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <h3>Фишки</h3>
+          <p>Каждые <b>5 уровней</b> — <b>босс</b> с умениями (рывок + выстрел + призыв). За босса ключи 🔑. Урон теперь с <b>цифрами</b> и критами.</p>
+          <div class="row2">
+            <span class="tag">Boss skills</span>
+            <span class="tag">Damage numbers</span>
+            <span class="tag">Fireworks</span>
+            <span class="tag">Cosmetics</span>
+          </div>
+        </div>
+        <div class="wide">
+          <button class="btn primary" id="btnPlay">▶️ Играть</button>
+          <button class="btn" id="btnHow">❔ Помощь</button>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:rgba(255,255,255,.70); line-height:1.35;">
+          Айфон: Safari → Поделиться → <b>На экран «Домой»</b>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div class="overlay" id="menuOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Меню</h2>
+          <p>Пауза / новый забег / админка</p>
+        </div>
+        <button class="btn" data-close="menuOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="grid">
+          <div class="card">
+            <h3>Жесты</h3>
+            <p>
+              • Веди пальцем — движение<br>
+              • Тап — атака<br>
+              • Быстрый свайп — рывок<br>
+              • Тап 2 пальцами — щит
+            </p>
+            <div class="row2">
+              <span class="tag">удобно</span>
+              <span class="tag">в любом месте</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Админ-панель</h3>
+            <p>Пароль: <b>1235</b>. Можно выдать себе монеты, SP и ключи.</p>
+            <div class="row2">
+              <button class="btn warn" id="btnAdmin">🛠️ Открыть</button>
+              <span class="tag">чит-режим</span>
+            </div>
+          </div>
+        </div>
+        <div class="wide">
+          <button class="btn primary" id="btnResume">▶️ Продолжить</button>
+          <button class="btn danger" id="btnRestart">🔄 Новый забег</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upgrades -->
+  <div class="overlay" id="upOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Прокачка</h2>
+          <p>Очки SP за уровень. Трать на статы.</p>
+        </div>
+        <button class="btn" data-close="upOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>SP: <b class="mono" id="uiSP">0</b></div>
+            <span class="tag">+1 за уровень</span>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Урон</h3>
+            <p>Больше урона по врагам.</p>
+            <div class="row2">
+              <span class="tag">DMG: <b class="mono" id="uiDmg">0</b></span>
+              <button class="btn primary" id="upDmg">+1</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Здоровье</h3>
+            <p>Больше максимального HP.</p>
+            <div class="row2">
+              <span class="tag">VIT: <b class="mono" id="uiVit">0</b></span>
+              <button class="btn primary" id="upVit">+1</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Скорость</h3>
+            <p>Быстрее двигаешься.</p>
+            <div class="row2">
+              <span class="tag">SPD: <b class="mono" id="uiSpd">0</b></span>
+              <button class="btn primary" id="upSpd">+1</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Крит</h3>
+            <p>Шанс крит-удара.</p>
+            <div class="row2">
+              <span class="tag">CRT: <b class="mono" id="uiCrt">0</b></span>
+              <button class="btn primary" id="upCrt">+1</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; font-size:12px; color:rgba(255,255,255,.70); line-height:1.35;">
+          Криты подсвечиваются, цифры урона — жёлтые.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop -->
+  <div class="overlay" id="shopOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Магазин</h2>
+          <p>Ништяки: скины, трейлы, ауры, эффекты удара, тема арены.</p>
+        </div>
+        <button class="btn" data-close="shopOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>Баланс: 💰 <b class="mono" id="uiShopCoins">0</b></div>
+            <span class="tag">Cosmetics</span>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Скин “Лёд”</h3>
+            <p>Холодный стиль.</p>
+            <div class="row2">
+              <span class="price">250</span>
+              <button class="btn primary" id="buySkinIce">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Скин “Неон”</h3>
+            <p>Яркий кибер-неон.</p>
+            <div class="row2">
+              <span class="price">400</span>
+              <button class="btn primary" id="buySkinNeon">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Скин “Золото”</h3>
+            <p>Блестящий золотой.</p>
+            <div class="row2">
+              <span class="price">600</span>
+              <button class="btn primary" id="buySkinGold">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Скин “Тень”</h3>
+            <p>Тёмная сущность.</p>
+            <div class="row2">
+              <span class="price">700</span>
+              <button class="btn primary" id="buySkinShadow">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Трейл “Искры”</h3>
+            <p>Салютный след.</p>
+            <div class="row2">
+              <span class="price">300</span>
+              <button class="btn primary" id="buyTrailSparks">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Трейл “Дым”</h3>
+            <p>Мягкий дымный след.</p>
+            <div class="row2">
+              <span class="price">300</span>
+              <button class="btn primary" id="buyTrailSmoke">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Трейл “Глитч”</h3>
+            <p>Кибер-мигание.</p>
+            <div class="row2">
+              <span class="price">450</span>
+              <button class="btn primary" id="buyTrailGlitch">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Трейл “Плазма”</h3>
+            <p>Фиолетовая плазма.</p>
+            <div class="row2">
+              <span class="price">500</span>
+              <button class="btn primary" id="buyTrailPlasma">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Аура “Glow”</h3>
+            <p>Свечение вокруг игрока.</p>
+            <div class="row2">
+              <span class="price">350</span>
+              <button class="btn primary" id="buyAuraGlow">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Аура “Pulse”</h3>
+            <p>Пульсирующая аура.</p>
+            <div class="row2">
+              <span class="price">500</span>
+              <button class="btn primary" id="buyAuraPulse">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Эффект удара “Slash”</h3>
+            <p>Красивый слэш при атаке.</p>
+            <div class="row2">
+              <span class="price">350</span>
+              <button class="btn primary" id="buyHitSlash">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Эффект удара “Nova”</h3>
+            <p>Вспышка/нова на критах.</p>
+            <div class="row2">
+              <span class="price">600</span>
+              <button class="btn primary" id="buyHitNova">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Тема арены “Cyber”</h3>
+            <p>Неоновая сетка.</p>
+            <div class="row2">
+              <span class="price">450</span>
+              <button class="btn primary" id="buyThemeCyber">Купить</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Тема арены “Void”</h3>
+            <p>Тёмная арена.</p>
+            <div class="row2">
+              <span class="price">450</span>
+              <button class="btn primary" id="buyThemeVoid">Купить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px;">
+          <h3>Надето</h3>
+          <p>Меняй бесплатно, если куплено.</p>
+          <div class="row2">
+            <span class="tag">Скин: <b class="mono" id="uiSkin">default</b></span>
+            <span class="tag">Трейл: <b class="mono" id="uiTrail">none</b></span>
+            <span class="tag">Аура: <b class="mono" id="uiAura">none</b></span>
+            <span class="tag">ХитFX: <b class="mono" id="uiHitFx">none</b></span>
+            <span class="tag">Тема: <b class="mono" id="uiTheme">default</b></span>
+          </div>
+          <div class="wide">
+            <button class="btn" id="equipDefault">Скин default</button>
+            <button class="btn" id="equipNoneTrail">Трейл none</button>
+            <button class="btn" id="equipNoneAura">Аура none</button>
+            <button class="btn" id="equipNoneHitFx">HitFX none</button>
+            <button class="btn" id="equipDefaultTheme">Тема default</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chests -->
+  <div class="overlay" id="chestOverlay">
+    <div class="panel" style="position:relative;">
+      <div class="panelHeader">
+        <div>
+          <h2>Сундуки</h2>
+          <p>Открывай за ключи 🔑 или за монеты. Будет салют 😈</p>
+        </div>
+        <button class="btn" data-close="chestOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>🔑 <b class="mono" id="uiChestKeys">0</b></div>
+            <div>💰 <b class="mono" id="uiChestCoins">0</b></div>
+          </div>
+          <p style="margin-top:10px;">Лут: монеты / SP / косметика. Легендарный — чаще косметика.</p>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Обычный</h3>
+            <p>Норм лут.</p>
+            <div class="row2">
+              <span class="tag">1 🔑 или 200 💰</span>
+              <button class="btn primary" id="openCommon">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Редкий</h3>
+            <p>Чуть лучше.</p>
+            <div class="row2">
+              <span class="tag">2 🔑 или 350 💰</span>
+              <button class="btn primary" id="openRare">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Легендарный</h3>
+            <p>Косметика чаще.</p>
+            <div class="row2">
+              <span class="tag">3 🔑 или 500 💰</span>
+              <button class="btn primary" id="openLegend">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Боссы</h3>
+            <p>Каждые 5 уровней — босс. Дроп ключей: +1 🔑 (иногда +2).</p>
+            <div class="row2">
+              <span class="tag">уровень % 5</span>
+              <span class="tag">БОСС</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px;">
+          <h3>Последний лут</h3>
+          <p id="lootText" style="margin:0; color:rgba(255,255,255,.86); font-weight:900;">—</p>
+        </div>
+      </div>
+
+      <div class="openAnim" id="openAnim">
+        <div class="chestBox" id="chestBox">
+          <div class="chestIcon" id="chestIcon">🎁</div>
+        </div>
+        <div class="animText" id="animText">Открываем…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin -->
+  <div class="overlay" id="adminOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Админ-панель</h2>
+          <p>Пароль → выдача монет / SP / ключей 🔑</p>
+        </div>
+        <button class="btn" data-close="adminOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <h3>Пароль</h3>
+          <p>Введи пароль, чтобы включить админские кнопки.</p>
+          <input class="input" id="adminPass" type="password" inputmode="numeric" placeholder="Пароль..." />
+          <div class="wide">
+            <button class="btn primary" id="adminLogin">Войти</button>
+            <button class="btn" id="adminLogout">Выйти</button>
+          </div>
+          <div style="margin-top:8px; font-size:12px; color:rgba(255,255,255,.72); font-weight:900;" id="adminState">Статус: 🔒 закрыто</div>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Монеты 💰</h3>
+            <p>Выдать бесплатно.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveCoins1">+500</button>
+              <button class="btn warn" id="giveCoins2">+2000</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>SP ⭐</h3>
+            <p>Очки прокачки.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveSP1">+5</button>
+              <button class="btn warn" id="giveSP2">+20</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Ключи 🔑</h3>
+            <p>Для сундуков.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveKeys1">+5</button>
+              <button class="btn warn" id="giveKeys2">+20</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Важно</h3>
+            <p>Это чит-админка в клиенте. Для соло-игры норм.</p>
+            <div class="row2">
+              <span class="tag">local</span>
+              <span class="tag">без сервера</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ----------------- helpers -----------------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+
+  // ----------------- canvas -----------------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha:false });
+
+  function resize(){
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(innerWidth * dpr);
+    canvas.height = Math.floor(innerHeight * dpr);
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // ----------------- save -----------------
+  const SAVE_KEY = 'level_rush_save_v4_boss_shop_numbers';
+  const ADMIN_PASSWORD = '1235';
+
+  const defaultSave = () => ({
+    coins:0, keys:0,
+    level:1, xp:0, sp:0,
+    stats:{ dmg:0, vit:0, spd:0, crt:0 },
+    cosmetics:{
+      ownedSkins:{ default:true },
+      ownedTrails:{ none:true },
+      ownedAuras:{ none:true },
+      ownedHitFx:{ none:true },
+      ownedThemes:{ default:true },
+      skin:'default',
+      trail:'none',
+      aura:'none',
+      hitFx:'none',
+      theme:'default'
+    },
+    adminUnlocked:false
+  });
+
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return defaultSave();
+      const s = JSON.parse(raw);
+      const d = defaultSave();
+      return {
+        ...d, ...s,
+        stats:{...d.stats, ...(s.stats||{})},
+        cosmetics:{
+          ...d.cosmetics, ...(s.cosmetics||{}),
+          ownedSkins:{...d.cosmetics.ownedSkins, ...((s.cosmetics||{}).ownedSkins||{})},
+          ownedTrails:{...d.cosmetics.ownedTrails,...((s.cosmetics||{}).ownedTrails||{})},
+          ownedAuras:{...d.cosmetics.ownedAuras,...((s.cosmetics||{}).ownedAuras||{})},
+          ownedHitFx:{...d.cosmetics.ownedHitFx,...((s.cosmetics||{}).ownedHitFx||{})},
+          ownedThemes:{...d.cosmetics.ownedThemes,...((s.cosmetics||{}).ownedThemes||{})},
+        }
+      };
+    }catch{
+      return defaultSave();
+    }
+  }
+  let S = loadSave();
+  const save = ()=> localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+
+  // ----------------- UI refs -----------------
+  const $ = id => document.getElementById(id);
+
+  const uiLevel=$('uiLevel'), uiCoins=$('uiCoins'), uiKeys=$('uiKeys');
+  const uiHpBar=$('uiHpBar'), uiShieldBar=$('uiShieldBar'), uiXpBar=$('uiXpBar');
+  const uiHpText=$('uiHpText'), uiShieldText=$('uiShieldText'), uiXpText=$('uiXpText');
+  const uiStage=$('uiStage');
+
+  const btnShop=$('btnShop'), btnChest=$('btnChest'), btnUpgrades=$('btnUpgrades'), btnMenu=$('btnMenu');
+  const startOverlay=$('startOverlay'), menuOverlay=$('menuOverlay'), upOverlay=$('upOverlay'), shopOverlay=$('shopOverlay'), chestOverlay=$('chestOverlay'), adminOverlay=$('adminOverlay');
+  const btnPlay=$('btnPlay'), btnHow=$('btnHow'), btnResetSave=$('btnResetSave');
+  const btnResume=$('btnResume'), btnRestart=$('btnRestart');
+
+  const uiSP=$('uiSP'), uiDmg=$('uiDmg'), uiVit=$('uiVit'), uiSpd=$('uiSpd'), uiCrt=$('uiCrt');
+  const upDmg=$('upDmg'), upVit=$('upVit'), upSpd=$('upSpd'), upCrt=$('upCrt');
+
+  const uiShopCoins=$('uiShopCoins'), uiSkin=$('uiSkin'), uiTrail=$('uiTrail'), uiAura=$('uiAura'), uiHitFx=$('uiHitFx'), uiTheme=$('uiTheme');
+  const buySkinIce=$('buySkinIce'), buySkinNeon=$('buySkinNeon'), buyTrailSparks=$('buyTrailSparks'), buyTrailSmoke=$('buyTrailSmoke');
+  const equipDefault=$('equipDefault'), equipNoneTrail=$('equipNoneTrail'), equipNoneAura=$('equipNoneAura'), equipNoneHitFx=$('equipNoneHitFx'), equipDefaultTheme=$('equipDefaultTheme');
+
+  // New shop items
+  const buySkinGold=$('buySkinGold'), buySkinShadow=$('buySkinShadow');
+  const buyTrailGlitch=$('buyTrailGlitch'), buyTrailPlasma=$('buyTrailPlasma');
+  const buyAuraGlow=$('buyAuraGlow'), buyAuraPulse=$('buyAuraPulse');
+  const buyHitSlash=$('buyHitSlash'), buyHitNova=$('buyHitNova');
+  const buyThemeCyber=$('buyThemeCyber'), buyThemeVoid=$('buyThemeVoid');
+
+  const uiChestKeys=$('uiChestKeys'), uiChestCoins=$('uiChestCoins');
+  const lootText=$('lootText');
+  const openCommon=$('openCommon'), openRare=$('openRare'), openLegend=$('openLegend');
+
+  const btnAdmin=$('btnAdmin'), adminPass=$('adminPass'), adminLogin=$('adminLogin'), adminLogout=$('adminLogout'), adminState=$('adminState');
+  const giveCoins1=$('giveCoins1'), giveCoins2=$('giveCoins2'), giveSP1=$('giveSP1'), giveSP2=$('giveSP2');
+  const giveKeys1=$('giveKeys1'), giveKeys2=$('giveKeys2');
+
+  const toast=$('toast'), toastText=$('toastText');
+
+  const chipDash=$('chipDash'), chipShield=$('chipShield');
+  const cdDash=$('cdDash'), cdShield=$('cdShield');
+
+  const openAnim=$('openAnim'), chestBox=$('chestBox'), chestIcon=$('chestIcon'), animText=$('animText');
+
+  document.querySelectorAll('[data-close]').forEach(b=>{
+    b.addEventListener('click', ()=> hideOverlay(b.getAttribute('data-close')));
+  });
+
+  function showToast(msg){
+    toastText.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 1600);
+  }
+
+  // ----------------- overlays -----------------
+  let paused = true;
+
+  function showOverlay(el){
+    el.classList.add('show');
+    paused = true;
+    updateUI();
+  }
+  function hideOverlay(id){
+    $(id).classList.remove('show');
+    if(!startOverlay.classList.contains('show')) paused = false;
+    updateUI();
+    save();
+  }
+
+  // ----------------- game core -----------------
+  const world = {
+    pad: 44,
+    topPad: 74,
+    w: ()=> innerWidth,
+    h: ()=> innerHeight
+  };
+
+  function xpNeed(lv){
+    return Math.floor(60 + lv*25 + Math.pow(lv,1.25)*6);
+  }
+  const isBossLevel = lv => lv % 5 === 0;
+
+  function stageName(){
+    return isBossLevel(S.level) ? '— БОСС' : `— Волна ${wave}`;
+  }
+
+  // themes affect arena style
+  function themeStyle(){
+    const t = S.cosmetics.theme;
+    if(t==='cyber'){
+      return {
+        gridAlpha: 0.13,
+        border: 'rgba(122,167,255,.18)',
+        grid: 'rgba(255,255,255,.22)'
+      };
+    }
+    if(t==='void'){
+      return {
+        gridAlpha: 0.08,
+        border: 'rgba(180,124,255,.14)',
+        grid: 'rgba(255,255,255,.18)'
+      };
+    }
+    return {
+      gridAlpha: 0.10,
+      border: 'rgba(255,255,255,.14)',
+      grid: 'rgba(255,255,255,.18)'
+    };
+  }
+
+  function skinColor(name){
+    if(name==='ice') return '#7AA7FF';
+    if(name==='neon') return '#B47CFF';
+    if(name==='gold') return '#FFD56A';
+    if(name==='shadow') return '#A9B0C8';
+    return '#FFFFFF';
+  }
+
+  const player = {
+    x: innerWidth*0.5,
+    y: innerHeight*0.62,
+    r: 14,
+    vx:0, vy:0,
+
+    maxHp:100,
+    hp:100,
+
+    baseSpeed: 220,
+    atkCd: 0,
+
+    dashCd: 0,
+    shieldCd: 0,
+    dashTime: 0,
+    dashVx: 0,
+    dashVy: 0,
+
+    shield: 0,
+    shieldMax: 0,
+    shieldTime: 0,
+
+    hitFlash: 0,
+  };
+
+  const enemies = [];
+  const particles = [];
+  const trails = [];
+  const confetti = [];
+  const bullets = [];      // boss projectiles
+  const damageTexts = [];  // цифры урона
+
+  let wave = 1;
+  let enemiesToSpawn = 3;
+
+  function applyStats(){
+    const st = S.stats;
+    player.maxHp = 100 + st.vit*22;
+    player.baseSpeed = 220 + st.spd*14;
+    player.shieldMax = 44 + st.vit*8;
+    player.hp = clamp(player.hp, 0, player.maxHp);
+    player.shield = clamp(player.shield, 0, player.shieldMax);
+  }
+  applyStats();
+
+  function addCoins(n){ S.coins += n; }
+  function addKeys(n){ S.keys = Math.max(0, S.keys + n); }
+  function addXp(n){
+    S.xp += n;
+    while(S.xp >= xpNeed(S.level)){
+      S.xp -= xpNeed(S.level);
+      S.level += 1;
+      S.sp += 1;
+      player.hp = clamp(player.hp + player.maxHp*0.35, 0, player.maxHp);
+    }
+  }
+
+  // ----------------- enemies / boss -----------------
+  function spawnEnemy(kind='mob'){
+    const pad=world.pad;
+    const x = Math.random()<0.5 ? rnd(pad, world.w()-pad) : (Math.random()<0.5 ? pad : world.w()-pad);
+    const y = Math.random()<0.5 ? rnd(world.topPad+pad, world.h()-pad) : (Math.random()<0.5 ? world.topPad+pad : world.h()-pad);
+
+    const lv=S.level;
+    let hp=40+lv*9, spd=105+lv*2.5, dmg=10+lv*1.25, r=12;
+
+    if(kind==='brute'){ hp*=1.7; spd*=0.82; dmg*=1.25; r=15; }
+    if(kind==='runner'){ hp*=0.85; spd*=1.35; dmg*=0.9; r=11; }
+
+    if(kind==='boss'){
+      // босс с 3 умениями: charge + shoot + summon
+      hp=320 + lv*70;
+      spd=125 + lv*1.7;
+      dmg=20 + lv*2.2;
+      r=28;
+      enemies.push({
+        x,y,r, vx:0,vy:0,
+        hp,maxHp:hp,
+        spd,dmg,
+        kind,
+        atkCd:rnd(0.4,0.9),
+        hitFlash:0,
+        phase:1,
+        chargeCd: 2.8,
+        shootCd: 1.9,
+        summonCd: 5.6,
+        charging:0,
+        chargeVx:0,
+        chargeVy:0
+      });
+      return;
+    }
+
+    enemies.push({ x,y,r, vx:0,vy:0, hp,maxHp:hp, spd,dmg, kind, atkCd:rnd(0.4,1.2), hitFlash:0 });
+  }
+
+  function spawnWave(){
+    enemies.length=0;
+    bullets.length=0;
+    const count = enemiesToSpawn + Math.floor(wave*0.6);
+    for(let i=0;i<count;i++){
+      const t=Math.random();
+      if(t<0.15) spawnEnemy('runner');
+      else if(t<0.35) spawnEnemy('brute');
+      else spawnEnemy('mob');
+    }
+  }
+
+  function startLevel(){
+    applyStats();
+    wave=1;
+    enemies.length=0;
+    bullets.length=0;
+    particles.length=0;
+    trails.length=0;
+
+    player.hp = player.maxHp;
+    player.shield = 0;
+    player.shieldTime = 0;
+
+    if(isBossLevel(S.level)) spawnEnemy('boss');
+    else{
+      enemiesToSpawn = 3 + Math.floor(S.level*0.6);
+      spawnWave();
+    }
+  }
+
+  // ----------------- damage numbers -----------------
+  function addDamageText(x,y,amount,crit,isPlayerHit=false){
+    const txt = Math.max(1, Math.round(amount)).toString();
+    damageTexts.push({
+      x, y,
+      vy: rnd(-55,-85),
+      vx: rnd(-18,18),
+      t: 0,
+      life: isPlayerHit ? 0.85 : 0.75,
+      txt,
+      crit,
+      isPlayerHit
+    });
+  }
+
+  // ----------------- combat -----------------
+  function damageForPlayer(){
+    const st=S.stats;
+    const base=18 + st.dmg*6;
+    const critChance=0.03 + st.crt*0.025;
+    const crit=Math.random()<critChance;
+    return { dmg: crit ? base*1.9 : base, crit };
+  }
+
+  function nearestEnemy(){
+    if(!enemies.length) return null;
+    let best=null, bd=1e9;
+    for(const e of enemies){
+      const d=dist(player.x,player.y,e.x,e.y);
+      if(d<bd){ bd=d; best=e; }
+    }
+    return best;
+  }
+
+  function hitBurst(x,y,crit){
+    for(let i=0;i<10;i++){
+      particles.push({
+        x,y,
+        vx:rnd(-200,200),
+        vy:rnd(-240,90),
+        life:rnd(0.22,0.44),
+        t:0,
+        r:rnd(1.6,3.6),
+        crit
+      });
+    }
+  }
+
+  function spawnTrail(){
+    const t=S.cosmetics.trail;
+    if(t==='none') return;
+
+    trails.push({
+      x:player.x, y:player.y,
+      r: player.r*(t==='smoke'?1.05:0.85),
+      life: t==='smoke'?0.60: (t==='plasma'?0.45:0.38),
+      t:0,
+      kind:t
+    });
+  }
+
+  function takeDamage(amount){
+    let left = amount;
+    if(player.shield > 0){
+      const use = Math.min(player.shield, left);
+      player.shield -= use;
+      left -= use;
+    }
+    if(left > 0) player.hp -= left;
+    addDamageText(player.x, player.y - 18, amount, false, true);
+  }
+
+  function doAttack(){
+    if(player.atkCd > 0) return;
+    const e = nearestEnemy();
+    if(!e) return;
+
+    const d = dist(player.x,player.y,e.x,e.y);
+    if(d > player.r + e.r + 26) return;
+
+    player.atkCd = 0.24;
+    const {dmg,crit} = damageForPlayer();
+    e.hp -= dmg;
+    e.hitFlash = 0.12;
+
+    // hit FX
+    if(S.cosmetics.hitFx === 'slash'){
+      for(let i=0;i<7;i++){
+        particles.push({ x:e.x, y:e.y, vx:rnd(-260,260), vy:rnd(-260,260), life:rnd(0.18,0.30), t:0, r:rnd(1.2,2.8), crit:true, slash:true });
+      }
+    }else if(S.cosmetics.hitFx === 'nova' && crit){
+      fireConfetti(e.x, e.y, 22, 0.75, true);
+    }
+
+    hitBurst(e.x,e.y,crit);
+    addDamageText(e.x, e.y - e.r - 10, dmg, crit, false);
+
+    const nx=(e.x-player.x)/(d||1), ny=(e.y-player.y)/(d||1);
+    e.vx += nx*140;
+    e.vy += ny*140;
+  }
+
+  // boss bullet
+  function bossShoot(boss){
+    const dx = player.x - boss.x;
+    const dy = player.y - boss.y;
+    const d = Math.hypot(dx,dy) || 1;
+    const speed = 420 + S.level*6;
+    bullets.push({
+      x: boss.x + (dx/d)*(boss.r+6),
+      y: boss.y + (dy/d)*(boss.r+6),
+      vx: (dx/d)*speed,
+      vy: (dy/d)*speed,
+      r: 6,
+      life: 3.0,
+      t: 0,
+      dmg: Math.max(8, boss.dmg*0.75)
+    });
+  }
+
+  function enemyUpdate(e,dt){
+    const pad=world.pad;
+
+    // boss logic
+    if(e.kind==='boss'){
+      e.phase = (e.hp/e.maxHp < 0.5) ? 2 : 1;
+
+      // cooldowns
+      e.chargeCd -= dt;
+      e.shootCd -= dt;
+      e.summonCd -= dt;
+
+      // charging state
+      if(e.charging > 0){
+        e.charging -= dt;
+        e.vx = e.chargeVx;
+        e.vy = e.chargeVy;
+      }else{
+        // normal chase
+        const dx=player.x-e.x, dy=player.y-e.y;
+        const d=Math.hypot(dx,dy)||1;
+
+        e.vx += (dx/d)*e.spd*dt;
+        e.vy += (dy/d)*e.spd*dt;
+
+        // friction
+        e.vx *= Math.pow(0.0005, dt);
+        e.vy *= Math.pow(0.0005, dt);
+
+        // skills triggers
+        const wantCharge = (e.chargeCd<=0 && d>160);
+        const wantShoot  = (e.shootCd<=0 && d>120);
+        const wantSummon = (e.summonCd<=0);
+
+        if(wantCharge){
+          // charge toward player
+          const cdx = dx/d, cdy = dy/d;
+          const sp = (e.phase===2 ? 820 : 720);
+          e.charging = (e.phase===2 ? 0.22 : 0.18);
+          e.chargeVx = cdx*sp;
+          e.chargeVy = cdy*sp;
+          e.chargeCd = (e.phase===2 ? 2.2 : 2.8);
+          fireConfetti(e.x,e.y,18,0.55,false,true);
+        }else if(wantShoot){
+          bossShoot(e);
+          e.shootCd = (e.phase===2 ? 1.2 : 1.8);
+        }else if(wantSummon){
+          // summon 1-2 minions
+          const n = (e.phase===2 ? (Math.random()<0.55?2:1) : 1);
+          for(let i=0;i<n;i++){
+            const kind = Math.random()<0.5 ? 'runner' : 'mob';
+            spawnEnemy(kind);
+            // relocate last spawned near boss
+            const last = enemies[enemies.length-1];
+            last.x = clamp(e.x + rnd(-90,90), pad, world.w()-pad);
+            last.y = clamp(e.y + rnd(-90,90), world.topPad+pad, world.h()-pad);
+          }
+          e.summonCd = (e.phase===2 ? 4.0 : 5.6);
+          fireConfetti(e.x,e.y,26,0.75,true);
+        }
+      }
+
+      e.x += e.vx*dt;
+      e.y += e.vy*dt;
+
+      e.x = clamp(e.x, pad, world.w()-pad);
+      e.y = clamp(e.y, world.topPad+pad, world.h()-pad);
+
+      // melee hit
+      e.atkCd -= dt;
+      const dxp=player.x-e.x, dyp=player.y-e.y;
+      const dp=Math.hypot(dxp,dyp)||1;
+      const range = e.r + player.r + 22;
+      if(e.atkCd<=0 && dp < range){
+        e.atkCd = (e.phase===2 ? 0.45 : 0.60);
+        takeDamage(e.dmg);
+        player.hitFlash = 0.12;
+        hitBurst(player.x,player.y,false);
+        const nx=(player.x-e.x)/(dp||1), ny=(player.y-e.y)/(dp||1);
+        player.vx += nx*260;
+        player.vy += ny*260;
+
+        if(player.hp <= 0){
+          player.hp = 0;
+          paused = true;
+          setTimeout(()=>{
+            alert("НУ ТЫ И ЛОХ 😈\n(шутка)\n\nОК — начнёшь уровень заново.");
+            paused = false;
+            startLevel();
+            updateUI();
+            save();
+          }, 30);
+        }
+      }
+
+      e.hitFlash = Math.max(0, e.hitFlash - dt);
+      return;
+    }
+
+    // normal enemies
+    const dx=player.x-e.x, dy=player.y-e.y;
+    const d=Math.hypot(dx,dy)||1;
+
+    e.vx += (dx/d)*e.spd*dt;
+    e.vy += (dy/d)*e.spd*dt;
+
+    e.vx *= Math.pow(0.0006, dt);
+    e.vy *= Math.pow(0.0006, dt);
+
+    e.x += e.vx*dt;
+    e.y += e.vy*dt;
+
+    e.x = clamp(e.x, pad, world.w()-pad);
+    e.y = clamp(e.y, world.topPad+pad, world.h()-pad);
+
+    e.atkCd -= dt;
+    const range = e.r + player.r + 12;
+    if(e.atkCd<=0 && d < range){
+      e.atkCd = 0.75;
+      takeDamage(e.dmg);
+      player.hitFlash = 0.12;
+      hitBurst(player.x,player.y,false);
+      const nx=(player.x-e.x)/(d||1), ny=(player.y-e.y)/(d||1);
+      player.vx += nx*240;
+      player.vy += ny*240;
+
+      if(player.hp <= 0){
+        player.hp = 0;
+        paused = true;
+        setTimeout(()=>{
+          alert("НУ ТЫ И ЛОХ 😈\n(шутка)\n\nОК — начнёшь уровень заново.");
+          paused = false;
+          startLevel();
+          updateUI();
+          save();
+        }, 30);
+      }
+    }
+
+    e.hitFlash = Math.max(0, e.hitFlash - dt);
+  }
+
+  // ----------------- skills -----------------
+  function tryDash(dirX, dirY){
+    if(player.dashCd > 0 || player.dashTime > 0) return false;
+
+    let dx=dirX, dy=dirY;
+    let m=Math.hypot(dx,dy);
+
+    if(m < 0.01){
+      const e = nearestEnemy();
+      if(e){
+        dx = e.x - player.x;
+        dy = e.y - player.y;
+        m = Math.hypot(dx,dy);
+      }
+    }
+    if(m < 0.01){ dx=0; dy=-1; m=1; }
+    dx/=m; dy/=m;
+
+    player.dashTime = 0.16;
+    const dashSpeed = 740;
+    player.dashVx = dx*dashSpeed;
+    player.dashVy = dy*dashSpeed;
+    player.dashCd = 2.6;
+
+    fireConfetti(player.x, player.y, 20, 0.55, true);
+    return true;
+  }
+
+  function tryShield(){
+    if(player.shieldCd > 0 || player.shieldTime > 0) return false;
+    applyStats();
+    player.shield = player.shieldMax;
+    player.shieldTime = 3.2;
+    player.shieldCd = 7.5;
+    fireConfetti(player.x, player.y, 26, 0.70, false, true);
+    return true;
+  }
+
+  // ----------------- gestures -----------------
+  let pointer = {
+    active:false,
+    id:null,
+    x:0, y:0,
+    startX:0, startY:0,
+    startT:0,
+    lastX:0, lastY:0,
+    moved:false,
+    vx:0, vy:0
+  };
+
+  let lastTapT = 0;
+  let twoFingerTapTimer = 0;
+
+  let moveTarget = { active:false, x:player.x, y:player.y };
+
+  function setMoveTarget(x,y){
+    moveTarget.active = true;
+    moveTarget.x = x;
+    moveTarget.y = y;
+  }
+  function clearMoveTarget(){ moveTarget.active=false; }
+
+  canvas.addEventListener('touchstart', (e)=>{
+    e.preventDefault();
+
+    if(e.touches.length >= 2){
+      twoFingerTapTimer = performance.now();
+      return;
+    }
+
+    const t = e.changedTouches[0];
+    pointer.active = true;
+    pointer.id = t.identifier;
+    pointer.x = pointer.lastX = pointer.startX = t.clientX;
+    pointer.y = pointer.lastY = pointer.startY = t.clientY;
+    pointer.startT = performance.now();
+    pointer.moved = false;
+
+    setMoveTarget(pointer.x, pointer.y);
+  }, {passive:false});
+
+  canvas.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    if(e.touches.length >= 2) return;
+
+    const list = [...e.changedTouches];
+    const t = list.find(tt => tt.identifier === pointer.id);
+    if(!t || !pointer.active) return;
+
+    const now = performance.now();
+    const dx = t.clientX - pointer.lastX;
+    const dy = t.clientY - pointer.lastY;
+    const dt = Math.max(1, now - (pointer._lt || now));
+    pointer._lt = now;
+
+    pointer.vx = dx / dt;
+    pointer.vy = dy / dt;
+
+    pointer.lastX = pointer.x;
+    pointer.lastY = pointer.y;
+
+    pointer.x = t.clientX;
+    pointer.y = t.clientY;
+
+    const totalMove = Math.hypot(pointer.x-pointer.startX, pointer.y-pointer.startY);
+    if(totalMove > 10) pointer.moved = true;
+
+    setMoveTarget(pointer.x, pointer.y);
+  }, {passive:false});
+
+  canvas.addEventListener('touchend', (e)=>{
+    e.preventDefault();
+    const now = performance.now();
+
+    if(twoFingerTapTimer){
+      const dt = now - twoFingerTapTimer;
+      twoFingerTapTimer = 0;
+      if(dt < 240){
+        tryShield();
+        return;
+      }
+    }
+
+    const list = [...e.changedTouches];
+    const t = list.find(tt => tt.identifier === pointer.id);
+    if(!t || !pointer.active) return;
+
+    const dur = now - pointer.startT;
+    const total = Math.hypot(pointer.x-pointer.startX, pointer.y-pointer.startY);
+
+    const speed = Math.hypot(pointer.vx, pointer.vy);
+    const fastSwipe = (dur < 220 && total > 55) || (speed > 1.25 && total > 45);
+
+    if(fastSwipe){
+      const dx = pointer.x - pointer.startX;
+      const dy = pointer.y - pointer.startY;
+      tryDash(dx, dy);
+    }else{
+      if(dur < 220 && total < 14){
+        if(now - lastTapT < 260){
+          tryDash(0,0);
+        }else{
+          doAttack();
+        }
+        lastTapT = now;
+      }
+    }
+
+    pointer.active = false;
+    pointer.id = null;
+    clearMoveTarget();
+  }, {passive:false});
+
+  canvas.addEventListener('touchcancel', (e)=>{
+    e.preventDefault();
+    pointer.active=false;
+    pointer.id=null;
+    clearMoveTarget();
+    twoFingerTapTimer=0;
+  }, {passive:false});
+
+  // mouse fallback
+  let mouseDown=false;
+  canvas.addEventListener('mousedown', (e)=>{
+    mouseDown=true;
+    pointer.active=true;
+    pointer.id='mouse';
+    pointer.x = pointer.startX = e.clientX;
+    pointer.y = pointer.startY = e.clientY;
+    pointer.startT = performance.now();
+    setMoveTarget(pointer.x, pointer.y);
+  });
+  window.addEventListener('mousemove', (e)=>{
+    if(!mouseDown) return;
+    pointer.x=e.clientX; pointer.y=e.clientY;
+    setMoveTarget(pointer.x, pointer.y);
+  });
+  window.addEventListener('mouseup', ()=>{
+    if(!mouseDown) return;
+    mouseDown=false;
+    const now=performance.now();
+    const dur=now-pointer.startT;
+    const total=Math.hypot(pointer.x-pointer.startX, pointer.y-pointer.startY);
+    if(dur<220 && total<10) doAttack();
+    pointer.active=false;
+    pointer.id=null;
+    clearMoveTarget();
+  });
+
+  // ----------------- confetti / fireworks -----------------
+  function fireConfetti(x,y,amount=26,power=0.7, gold=false, purple=false){
+    for(let i=0;i<amount;i++){
+      const ang = rnd(0, Math.PI*2);
+      const sp  = rnd(220, 720) * power;
+      const size= rnd(2.2, 4.8);
+      const life= rnd(0.55, 1.05);
+      const spin= rnd(-14, 14);
+
+      const pal = purple
+        ? ['#B47CFF','#7AA7FF','#FFFFFF']
+        : gold
+          ? ['#FFD56A','#FF6B8B','#FFFFFF']
+          : ['#7AA7FF','#B47CFF','#FFD56A','#7CFFB2','#FFFFFF'];
+
+      confetti.push({
+        x, y,
+        vx: Math.cos(ang)*sp,
+        vy: Math.sin(ang)*sp - rnd(60,220),
+        g: rnd(520, 980),
+        r: size,
+        life,
+        t: 0,
+        rot: rnd(0, Math.PI*2),
+        spin,
+        col: pal[(Math.random()*pal.length)|0],
+        rect: Math.random()<0.55
+      });
+    }
+  }
+
+  // ----------------- chests -----------------
+  const CHEST = {
+    common:{ keyCost:1, coinCost:200, name:'Обычный', icon:'🎁' },
+    rare:{ keyCost:2, coinCost:350, name:'Редкий', icon:'🎁' },
+    legend:{ keyCost:3, coinCost:500, name:'Легендарный', icon:'🏆' }
+  };
+
+  function randPick(arr){
+    const total = arr.reduce((s,x)=>s+x.w,0);
+    let r = Math.random()*total;
+    for(const it of arr){
+      r -= it.w;
+      if(r<=0) return it;
+    }
+    return arr[arr.length-1];
+  }
+
+  const ownSkin = k => !!S.cosmetics.ownedSkins[k];
+  const ownTrail = k=> !!S.cosmetics.ownedTrails[k];
+  const ownAura = k=> !!S.cosmetics.ownedAuras[k];
+  const ownHitFx = k=> !!S.cosmetics.ownedHitFx[k];
+  const ownTheme = k=> !!S.cosmetics.ownedThemes[k];
+
+  function grantCosmetic(tier){
+    const skins=['ice','neon','gold','shadow'];
+    const trailsList=['sparks','smoke','glitch','plasma'];
+    const auras=['glow','pulse'];
+    const hitfx=['slash','nova'];
+    const themes=['cyber','void'];
+
+    const pool=[];
+    const w = tier==='legend'?3: tier==='rare'?2:1;
+
+    const pickFrom = (arr, ownFn, type) => {
+      const not = arr.filter(x=>!ownFn(x));
+      (not.length?not:arr).forEach(id=>pool.push({type,id,w}));
+    };
+
+    pickFrom(skins, ownSkin, 'skin');
+    pickFrom(trailsList, ownTrail, 'trail');
+    pickFrom(auras, ownAura, 'aura');
+    pickFrom(hitfx, ownHitFx, 'hitFx');
+    pickFrom(themes, ownTheme, 'theme');
+
+    const p = randPick(pool);
+
+    if(p.type==='skin'){ S.cosmetics.ownedSkins[p.id]=true; S.cosmetics.skin=p.id; return `🎨 скин "${p.id}" (надет)`; }
+    if(p.type==='trail'){ S.cosmetics.ownedTrails[p.id]=true; S.cosmetics.trail=p.id; return `✨ трейл "${p.id}" (надет)`; }
+    if(p.type==='aura'){ S.cosmetics.ownedAuras[p.id]=true; S.cosmetics.aura=p.id; return `🟣 аура "${p.id}" (надета)`; }
+    if(p.type==='hitFx'){ S.cosmetics.ownedHitFx[p.id]=true; S.cosmetics.hitFx=p.id; return `⚡ HitFX "${p.id}" (включен)`; }
+    S.cosmetics.ownedThemes[p.id]=true; S.cosmetics.theme=p.id; return `🎛️ тема "${p.id}" (включена)`;
+  }
+
+  function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+
+  async function playChestAnim(icon, title){
+    openAnim.classList.add('show');
+    chestIcon.textContent = icon;
+    animText.textContent = title;
+    chestBox.classList.remove('shake');
+
+    await wait(80);
+    chestBox.classList.add('shake');
+
+    await wait(520);
+    fireConfetti(innerWidth*0.5, innerHeight*0.42, 44, 0.9, true);
+    await wait(220);
+
+    openAnim.classList.remove('show');
+  }
+
+  async function openChest(tier){
+    const cfg = CHEST[tier];
+
+    if(S.keys >= cfg.keyCost){
+      S.keys -= cfg.keyCost;
+    }else{
+      if(S.coins < cfg.coinCost){
+        showToast(`Не хватает 🔑 или 💰 для "${cfg.name}"`);
+        return;
+      }
+      S.coins -= cfg.coinCost;
+    }
+
+    updateUI(); save();
+    await playChestAnim(cfg.icon, `Открываем "${cfg.name}"…`);
+
+    const tables = {
+      common:[
+        {w:54, fn:()=>{const c=200+Math.floor(rnd(0,120)); addCoins(c); return `💰 +${c}`;}},
+        {w:18, fn:()=>{const c=450+Math.floor(rnd(0,250)); addCoins(c); return `💰 +${c}`;}},
+        {w:15, fn:()=>{S.sp+=1; return `⭐ SP +1`;}},
+        {w:8,  fn:()=>{S.sp+=2; return `⭐ SP +2`;}},
+        {w:5,  fn:()=>`Косметика: ${grantCosmetic('common')}`},
+      ],
+      rare:[
+        {w:36, fn:()=>{const c=350+Math.floor(rnd(0,180)); addCoins(c); return `💰 +${c}`;}},
+        {w:22, fn:()=>{const c=700+Math.floor(rnd(0,350)); addCoins(c); return `💰 +${c}`;}},
+        {w:20, fn:()=>{S.sp+=2; return `⭐ SP +2`;}},
+        {w:12, fn:()=>{S.sp+=3; return `⭐ SP +3`;}},
+        {w:10, fn:()=>`Косметика: ${grantCosmetic('rare')}`},
+      ],
+      legend:[
+        {w:16, fn:()=>{const c=600+Math.floor(rnd(0,250)); addCoins(c); return `💰 +${c}`;}},
+        {w:22, fn:()=>{const c=1200+Math.floor(rnd(0,600)); addCoins(c); return `💰 +${c}`;}},
+        {w:18, fn:()=>{S.sp+=4; return `⭐ SP +4`;}},
+        {w:14, fn:()=>{S.sp+=6; return `⭐ SP +6`;}},
+        {w:30, fn:()=>`Косметика: ${grantCosmetic('legend')}`},
+      ]
+    };
+
+    const pick = randPick(tables[tier]);
+    const text = pick.fn();
+
+    lootText.textContent = `Сундук "${cfg.name}": ${text}`;
+    showToast(`🎉 ${text}`);
+    fireConfetti(innerWidth*0.5, innerHeight*0.48, tier==='legend'?58:44, tier==='legend'?1.0:0.85, true);
+
+    updateUI(); save();
+  }
+
+  // ----------------- shop system -----------------
+  function canPay(cost){ return S.coins >= cost; }
+  function pay(cost){ if(!canPay(cost)) return false; S.coins -= cost; return true; }
+
+  function equipSkin(k){ if(!ownSkin(k)) return; S.cosmetics.skin=k; updateUI(); save(); }
+  function equipTrail(k){ if(!ownTrail(k)) return; S.cosmetics.trail=k; updateUI(); save(); }
+  function equipAura(k){ if(!ownAura(k)) return; S.cosmetics.aura=k; updateUI(); save(); }
+  function equipHitFx(k){ if(!ownHitFx(k)) return; S.cosmetics.hitFx=k; updateUI(); save(); }
+  function equipTheme(k){ if(!ownTheme(k)) return; S.cosmetics.theme=k; updateUI(); save(); }
+
+  function buyCosmetic(cost, alreadyOwned, onBuy, msgBuy, msgEquip){
+    if(alreadyOwned()){
+      onBuy(false);
+      showToast(msgEquip);
+      fireConfetti(innerWidth*0.5, innerHeight*0.45, 26, 0.75, true);
+      return true;
+    }
+    if(!pay(cost)){
+      showToast('Не хватает монет 💰');
+      return false;
+    }
+    onBuy(true);
+    showToast(msgBuy);
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 44, 0.9, true);
+    return true;
+  }
+
+  // ----------------- admin -----------------
+  function setAdminUI(){
+    const on=!!S.adminUnlocked;
+    adminState.textContent = `Статус: ${on?'🔓 открыто':'🔒 закрыто'}`;
+    const arr=[giveCoins1,giveCoins2,giveSP1,giveSP2,giveKeys1,giveKeys2];
+    arr.forEach(b=>{
+      b.disabled = !on;
+      b.style.opacity = !on ? 0.55 : 1;
+    });
+  }
+  function guardAdmin(){
+    if(!S.adminUnlocked){ alert('Админка закрыта. Введи пароль.'); return false; }
+    return true;
+  }
+
+  // ----------------- UI update -----------------
+  function updateUI(){
+    uiLevel.textContent = S.level;
+    uiCoins.textContent = S.coins;
+    uiKeys.textContent = S.keys;
+
+    uiHpText.textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    uiShieldText.textContent = `${Math.ceil(player.shield)}`;
+    uiHpBar.style.width = `${clamp((player.hp/player.maxHp)*100,0,100)}%`;
+    uiShieldBar.style.width = `${clamp(((player.shield/player.shieldMax)||0)*100,0,100)}%`;
+
+    const need = xpNeed(S.level);
+    uiXpText.textContent = `${S.xp}/${need}`;
+    uiXpBar.style.width = `${clamp((S.xp/need)*100,0,100)}%`;
+
+    uiStage.textContent = stageName();
+
+    uiSP.textContent = S.sp;
+    uiDmg.textContent = S.stats.dmg;
+    uiVit.textContent = S.stats.vit;
+    uiSpd.textContent = S.stats.spd;
+    uiCrt.textContent = S.stats.crt;
+
+    uiShopCoins.textContent = S.coins;
+    uiSkin.textContent = S.cosmetics.skin;
+    uiTrail.textContent = S.cosmetics.trail;
+    uiAura.textContent = S.cosmetics.aura;
+    uiHitFx.textContent = S.cosmetics.hitFx;
+    uiTheme.textContent = S.cosmetics.theme;
+
+    uiChestCoins.textContent = S.coins;
+    uiChestKeys.textContent = S.keys;
+
+    // cooldown indicators
+    if(player.dashCd > 0){
+      chipDash.classList.add('cool');
+      cdDash.textContent = player.dashCd.toFixed(1);
+    }else chipDash.classList.remove('cool');
+
+    if(player.shieldCd > 0){
+      chipShield.classList.add('cool');
+      cdShield.textContent = player.shieldCd.toFixed(1);
+    }else chipShield.classList.remove('cool');
+
+    // button labels (buy/equip)
+    const label = (owned, equipped)=> owned ? (equipped ? 'Надето' : 'Надеть') : 'Купить';
+
+    buySkinIce.textContent = label(ownSkin('ice'), S.cosmetics.skin==='ice');
+    buySkinNeon.textContent = label(ownSkin('neon'), S.cosmetics.skin==='neon');
+    buySkinGold.textContent = label(ownSkin('gold'), S.cosmetics.skin==='gold');
+    buySkinShadow.textContent = label(ownSkin('shadow'), S.cosmetics.skin==='shadow');
+
+    buyTrailSparks.textContent = label(ownTrail('sparks'), S.cosmetics.trail==='sparks');
+    buyTrailSmoke.textContent = label(ownTrail('smoke'), S.cosmetics.trail==='smoke');
+    buyTrailGlitch.textContent = label(ownTrail('glitch'), S.cosmetics.trail==='glitch');
+    buyTrailPlasma.textContent = label(ownTrail('plasma'), S.cosmetics.trail==='plasma');
+
+    buyAuraGlow.textContent = label(ownAura('glow'), S.cosmetics.aura==='glow');
+    buyAuraPulse.textContent = label(ownAura('pulse'), S.cosmetics.aura==='pulse');
+
+    buyHitSlash.textContent = label(ownHitFx('slash'), S.cosmetics.hitFx==='slash');
+    buyHitNova.textContent = label(ownHitFx('nova'), S.cosmetics.hitFx==='nova');
+
+    buyThemeCyber.textContent = label(ownTheme('cyber'), S.cosmetics.theme==='cyber');
+    buyThemeVoid.textContent = label(ownTheme('void'), S.cosmetics.theme==='void');
+
+    setAdminUI();
+  }
+
+  // ----------------- draw helpers -----------------
+  function roundRect(c,x,y,w,h,r){
+    const rr=Math.min(r,w/2,h/2);
+    c.moveTo(x+rr,y);
+    c.arcTo(x+w,y,x+w,y+h,rr);
+    c.arcTo(x+w,y+h,x,y+h,rr);
+    c.arcTo(x,y+h,x,y,rr);
+    c.arcTo(x,y,x+w,y,rr);
+    c.closePath();
+  }
+
+  function drawBg(){
+    const w=world.w(), h=world.h();
+
+    // base fill (background is set on canvas, still we clear)
+    ctx.fillStyle = '#050611';
+    ctx.fillRect(0,0,w,h);
+
+    // grid
+    const ts = themeStyle();
+    ctx.globalAlpha = ts.gridAlpha;
+    ctx.strokeStyle = ts.grid;
+    ctx.lineWidth = 1;
+    const step = (S.cosmetics.theme==='cyber') ? 40 : 44;
+    ctx.beginPath();
+    for(let x=0;x<w;x+=step){ ctx.moveTo(x,0); ctx.lineTo(x,h); }
+    for(let y=0;y<h;y+=step){ ctx.moveTo(0,y); ctx.lineTo(w,y); }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // border
+    const pad=world.pad;
+    ctx.strokeStyle = ts.border;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, world.topPad+pad, w-pad*2, h-(pad*2+world.topPad));
+  }
+
+  function drawCircle(x,y,r,color,flash=0, glow=0){
+    ctx.save();
+    ctx.shadowColor = flash>0 ? 'rgba(255,255,255,.92)' : (glow>0 ? color : 'rgba(0,0,0,.65)');
+    ctx.shadowBlur = flash>0 ? 18 : (glow>0 ? glow : 12);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHpBar(x,y,w,h,ratio,color){
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.32)';
+    ctx.strokeStyle='rgba(255,255,255,.10)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); roundRect(ctx,x,y,w,h,999); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath(); roundRect(ctx,x,y,w*clamp(ratio,0,1),h,999); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawAura(){
+    const a = S.cosmetics.aura;
+    if(a==='none') return;
+    const pulse = (a==='pulse');
+    const t = performance.now()/1000;
+    const rr = player.r + (pulse ? (10 + 4*Math.sin(t*5)) : 10);
+    const alpha = pulse ? (0.22 + 0.10*Math.sin(t*4)) : 0.22;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const grd = ctx.createRadialGradient(player.x,player.y, player.r, player.x,player.y, rr+18);
+    grd.addColorStop(0, 'rgba(180,124,255,.0)');
+    grd.addColorStop(0.35, 'rgba(180,124,255,.35)');
+    grd.addColorStop(1, 'rgba(180,124,255,.0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(player.x,player.y, rr+18, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ----------------- draw -----------------
+  function draw(){
+    drawBg();
+
+    // trails
+    for(const t of trails){
+      const a = 1 - (t.t/t.life);
+      ctx.globalAlpha = a * (t.kind==='smoke' ? 0.18 : (t.kind==='plasma'?0.34:0.30));
+      if(t.kind==='sparks'){
+        ctx.fillStyle = 'rgba(255,213,106,1)';
+      }else if(t.kind==='glitch'){
+        ctx.fillStyle = Math.random()<0.5 ? 'rgba(122,167,255,1)' : 'rgba(180,124,255,1)';
+      }else if(t.kind==='plasma'){
+        ctx.fillStyle = 'rgba(180,124,255,1)';
+      }else{
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+      }
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r*(0.9+(t.t/t.life)*0.6), 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // bullets
+    for(const b of bullets){
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      drawCircle(b.x, b.y, b.r+2, 'rgba(0,0,0,.45)', 0, 0);
+      drawCircle(b.x, b.y, b.r, '#FF6B8B', 0, 18);
+      ctx.restore();
+    }
+
+    // enemies
+    for(const e of enemies){
+      const isBoss = e.kind==='boss';
+      const c = isBoss ? '#FF6B8B' : (e.kind==='runner' ? '#FFD56A' : (e.kind==='brute' ? '#7CFFB2' : '#FFFFFF'));
+      const glow = isBoss ? 24 : 0;
+
+      drawCircle(e.x,e.y,e.r+3,'rgba(0,0,0,.42)');
+      drawCircle(e.x,e.y,e.r,c,e.hitFlash, glow);
+
+      // boss crown
+      if(isBoss){
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = 'rgba(255,213,106,.9)';
+        ctx.font = '900 12px system-ui, -apple-system, Segoe UI, Roboto';
+        ctx.textAlign='center';
+        ctx.fillText('BOSS', e.x, e.y - e.r - 18);
+        ctx.restore();
+      }
+
+      drawHpBar(e.x-28, e.y-e.r-14, 56, 8, e.hp/e.maxHp, isBoss?'rgba(255,107,139,.95)':'rgba(255,255,255,.75)');
+    }
+
+    // player aura
+    drawAura();
+
+    // player
+    const pc = skinColor(S.cosmetics.skin);
+    drawCircle(player.x,player.y,player.r+3,'rgba(0,0,0,.45)');
+    drawCircle(player.x,player.y,player.r,pc,player.hitFlash, 18);
+
+    // shield ring
+    if(player.shield>0){
+      ctx.save();
+      ctx.globalAlpha = 0.55 + 0.25*Math.sin(performance.now()/130);
+      ctx.strokeStyle = 'rgba(180,124,255,.98)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r+11, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // hit particles
+    for(const p of particles){
+      const a=1-(p.t/p.life);
+      ctx.globalAlpha=a;
+      if(p.slash){
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+      }else{
+        ctx.fillStyle=p.crit ? 'rgba(255,213,106,1)' : 'rgba(255,255,255,1)';
+      }
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha=1;
+
+    // confetti
+    for(const c of confetti){
+      const a = 1 - (c.t / c.life);
+      ctx.globalAlpha = Math.max(0,a);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rot);
+      ctx.fillStyle = c.col;
+      if(c.rect){
+        ctx.fillRect(-c.r*1.3, -c.r*0.7, c.r*2.6, c.r*1.4);
+      }else{
+        ctx.beginPath();
+        ctx.arc(0,0,c.r,0,Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha=1;
+
+    // damage numbers
+    ctx.save();
+    ctx.textAlign='center';
+    for(const d of damageTexts){
+      const a = 1 - (d.t/d.life);
+      ctx.globalAlpha = Math.max(0,a);
+
+      if(d.isPlayerHit){
+        ctx.fillStyle = 'rgba(255,107,139,1)';
+        ctx.font = '900 14px system-ui, -apple-system, Segoe UI, Roboto';
+        ctx.fillText('-' + d.txt, d.x, d.y);
+      }else{
+        ctx.fillStyle = d.crit ? 'rgba(255,213,106,1)' : 'rgba(255,255,255,1)';
+        ctx.font = d.crit ? '950 16px system-ui, -apple-system, Segoe UI, Roboto' : '900 14px system-ui, -apple-system, Segoe UI, Roboto';
+        ctx.fillText(d.txt, d.x, d.y);
+        if(d.crit){
+          ctx.globalAlpha = Math.max(0,a*0.55);
+          ctx.strokeStyle = 'rgba(0,0,0,.55)';
+          ctx.lineWidth = 3;
+          ctx.strokeText(d.txt, d.x, d.y);
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  // ----------------- update loop -----------------
+  function clampToArena(){
+    const pad=world.pad;
+    player.x = clamp(player.x, pad, world.w()-pad);
+    player.y = clamp(player.y, world.topPad+pad, world.h()-pad);
+  }
+
+  function updatePlayer(dt){
+    player.atkCd = Math.max(0, player.atkCd - dt);
+    player.dashCd = Math.max(0, player.dashCd - dt);
+    player.shieldCd = Math.max(0, player.shieldCd - dt);
+
+    if(player.shieldTime > 0){
+      player.shieldTime -= dt;
+      if(player.shieldTime <= 0) player.shieldTime = 0;
+    }
+
+    if(player.dashTime > 0){
+      player.dashTime -= dt;
+      player.vx = player.dashVx;
+      player.vy = player.dashVy;
+    }else{
+      if(moveTarget.active){
+        const dx = moveTarget.x - player.x;
+        const dy = moveTarget.y - player.y;
+        const d = Math.hypot(dx,dy) || 1;
+
+        const speed = player.baseSpeed * clamp(d/120, 0.35, 1.25);
+        const tx = (dx/d) * speed;
+        const ty = (dy/d) * speed;
+
+        player.vx += (tx - player.vx) * (1 - Math.pow(0.001, dt));
+        player.vy += (ty - player.vy) * (1 - Math.pow(0.001, dt));
+      }else{
+        player.vx *= Math.pow(0.0008, dt);
+        player.vy *= Math.pow(0.0008, dt);
+      }
+    }
+
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+    clampToArena();
+
+    if(S.cosmetics.trail!=='none' && (Math.abs(player.vx)+Math.abs(player.vy) > 60)){
+      if(Math.random() < 0.44) spawnTrail();
+    }
+
+    // auto poke (helps)
+    const e = nearestEnemy();
+    if(e){
+      const d = dist(player.x,player.y,e.x,e.y);
+      if(d < player.r + e.r + 24 && player.atkCd <= 0){
+        doAttack();
+      }
+    }
+
+    player.hitFlash = Math.max(0, player.hitFlash - dt);
+  }
+
+  function updateBullets(dt){
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      b.t += dt;
+      b.x += b.vx*dt;
+      b.y += b.vy*dt;
+
+      // hit player
+      const d = dist(b.x,b.y, player.x,player.y);
+      if(d < b.r + player.r){
+        bullets.splice(i,1);
+        takeDamage(b.dmg);
+        fireConfetti(b.x,b.y,18,0.6,false,true);
+        continue;
+      }
+
+      if(b.t >= b.life){
+        bullets.splice(i,1);
+        continue;
+      }
+
+      // out of arena
+      if(b.x < -50 || b.x > world.w()+50 || b.y < -50 || b.y > world.h()+50){
+        bullets.splice(i,1);
+      }
+    }
+  }
+
+  function updateParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.t += dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vy += 520*dt;
+      if(p.t >= p.life) particles.splice(i,1);
+    }
+    for(let i=trails.length-1;i>=0;i--){
+      const t=trails[i];
+      t.t += dt;
+      if(t.t >= t.life) trails.splice(i,1);
+    }
+    for(let i=confetti.length-1;i>=0;i--){
+      const c=confetti[i];
+      c.t += dt;
+      c.vy += c.g * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.vx *= Math.pow(0.04, dt);
+      c.rot += c.spin * dt;
+      if(c.t >= c.life) confetti.splice(i,1);
+    }
+    for(let i=damageTexts.length-1;i>=0;i--){
+      const d=damageTexts[i];
+      d.t += dt;
+      d.x += d.vx * dt * 60;
+      d.y += d.vy * dt;
+      d.vy += 60*dt; // чуть замедляется вверх
+      if(d.t >= d.life) damageTexts.splice(i,1);
+    }
+  }
+
+  function maybeComplete(){
+    if(enemies.length !== 0) return;
+
+    if(isBossLevel(S.level)){
+      let k=1;
+      if(Math.random() < 0.18) k=2;
+      addKeys(k);
+      showToast(`Босс: 🔑 +${k}`);
+      fireConfetti(innerWidth*0.5, innerHeight*0.38, 48, 0.95, true);
+
+      S.level += 1;
+      S.sp += 1;
+      player.hp = clamp(player.hp + player.maxHp*0.45, 0, player.maxHp);
+
+      startLevel();
+      save();
+      return;
+    }
+
+    wave += 1;
+    if(wave <= 3){
+      enemiesToSpawn = 3 + Math.floor(S.level*0.6);
+      spawnWave();
+    }else{
+      addXp(70 + Math.floor(S.level*18));
+      addCoins(60 + Math.floor(S.level*10));
+      S.level += 1;
+      S.sp += 1;
+      startLevel();
+      save();
+    }
+  }
+
+  // ----------------- loop -----------------
+  let last = performance.now();
+  function loop(now){
+    const dt = clamp((now-last)/1000, 0, 0.033);
+    last = now;
+
+    if(!paused){
+      updatePlayer(dt);
+
+      for(const e of enemies) enemyUpdate(e,dt);
+      updateBullets(dt);
+
+      // remove dead + rewards
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if(e.hp <= 0){
+          enemies.splice(i,1);
+          const baseXp = e.kind==='boss' ? 160 : 18;
+          const coins = e.kind==='boss' ? 200 : (10 + Math.floor(S.level*0.35));
+          addXp(baseXp + Math.floor(S.level*7));
+          addCoins(coins);
+
+          if(e.kind==='boss'){
+            fireConfetti(e.x,e.y,54,1.0,true);
+            showToast('Босс уничтожен 😈');
+          }else{
+            if(Math.random()<0.15) fireConfetti(e.x,e.y,14,0.55,false,true);
+          }
+        }
+      }
+
+      maybeComplete();
+      updateParticles(dt);
+      updateUI();
+    }
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ----------------- buttons -----------------
+  btnPlay.addEventListener('click', ()=>{
+    startOverlay.classList.remove('show');
+    paused = false;
+    startLevel();
+    updateUI();
+    save();
+    showToast('Поехали 😈');
+  });
+
+  btnHow.addEventListener('click', ()=>{
+    alert(
+      "Управление:\n" +
+      "— Веди пальцем в любой части экрана: движение\n" +
+      "— Тап: атака\n" +
+      "— Быстрый свайп: рывок\n" +
+      "— Тап 2 пальцами: щит\n\n" +
+      "Босс:\n" +
+      "— Рывок (charge)\n" +
+      "— Выстрелы\n" +
+      "— Призыв миньонов\n"
+    );
+  });
+
+  btnResetSave.addEventListener('click', ()=>{
+    if(!confirm("Сбросить весь прогресс?")) return;
+    localStorage.removeItem(SAVE_KEY);
+    S = loadSave();
+    applyStats();
+    updateUI();
+    startLevel();
+    showToast('Сброшено');
+  });
+
+  btnShop.addEventListener('click', ()=> showOverlay(shopOverlay));
+  btnChest.addEventListener('click', ()=> showOverlay(chestOverlay));
+  btnUpgrades.addEventListener('click', ()=> showOverlay(upOverlay));
+  btnMenu.addEventListener('click', ()=> showOverlay(menuOverlay));
+
+  btnResume.addEventListener('click', ()=> hideOverlay('menuOverlay'));
+  btnRestart.addEventListener('click', ()=>{
+    hideOverlay('menuOverlay');
+    startLevel();
+    save();
+    showToast('Новый забег');
+  });
+
+  // upgrades
+  const spendSP = ()=>{ if(S.sp<=0) return false; S.sp -= 1; return true; };
+  upDmg.addEventListener('click', ()=>{ if(!spendSP()) return showToast('Нет SP'); S.stats.dmg += 1; updateUI(); save(); showToast('DMG +1'); });
+  upVit.addEventListener('click', ()=>{ if(!spendSP()) return showToast('Нет SP'); S.stats.vit += 1; applyStats(); updateUI(); save(); showToast('VIT +1'); });
+  upSpd.addEventListener('click', ()=>{ if(!spendSP()) return showToast('Нет SP'); S.stats.spd += 1; applyStats(); updateUI(); save(); showToast('SPD +1'); });
+  upCrt.addEventListener('click', ()=>{ if(!spendSP()) return showToast('Нет SP'); S.stats.crt += 1; updateUI(); save(); showToast('CRT +1'); });
+
+  // shop equip defaults
+  equipDefault.addEventListener('click', ()=>{ equipSkin('default'); showToast('Скин: default'); });
+  equipNoneTrail.addEventListener('click', ()=>{ equipTrail('none'); showToast('Трейл: none'); });
+  equipNoneAura.addEventListener('click', ()=>{ equipAura('none'); showToast('Аура: none'); });
+  equipNoneHitFx.addEventListener('click', ()=>{ equipHitFx('none'); showToast('HitFX: none'); });
+  equipDefaultTheme.addEventListener('click', ()=>{ equipTheme('default'); showToast('Тема: default'); });
+
+  // shop purchases
+  buySkinIce.addEventListener('click', ()=>{
+    buyCosmetic(250, ()=>ownSkin('ice'), (fresh)=>{ if(fresh) S.cosmetics.ownedSkins.ice=true; equipSkin('ice'); save(); }, 'Куплено: ice', 'Надето: ice');
+  });
+  buySkinNeon.addEventListener('click', ()=>{
+    buyCosmetic(400, ()=>ownSkin('neon'), (fresh)=>{ if(fresh) S.cosmetics.ownedSkins.neon=true; equipSkin('neon'); save(); }, 'Куплено: neon', 'Надето: neon');
+  });
+  buySkinGold.addEventListener('click', ()=>{
+    buyCosmetic(600, ()=>ownSkin('gold'), (fresh)=>{ if(fresh) S.cosmetics.ownedSkins.gold=true; equipSkin('gold'); save(); }, 'Куплено: gold', 'Надето: gold');
+  });
+  buySkinShadow.addEventListener('click', ()=>{
+    buyCosmetic(700, ()=>ownSkin('shadow'), (fresh)=>{ if(fresh) S.cosmetics.ownedSkins.shadow=true; equipSkin('shadow'); save(); }, 'Куплено: shadow', 'Надето: shadow');
+  });
+
+  buyTrailSparks.addEventListener('click', ()=>{
+    buyCosmetic(300, ()=>ownTrail('sparks'), (fresh)=>{ if(fresh) S.cosmetics.ownedTrails.sparks=true; equipTrail('sparks'); save(); }, 'Куплено: sparks', 'Надето: sparks');
+  });
+  buyTrailSmoke.addEventListener('click', ()=>{
+    buyCosmetic(300, ()=>ownTrail('smoke'), (fresh)=>{ if(fresh) S.cosmetics.ownedTrails.smoke=true; equipTrail('smoke'); save(); }, 'Куплено: smoke', 'Надето: smoke');
+  });
+  buyTrailGlitch.addEventListener('click', ()=>{
+    buyCosmetic(450, ()=>ownTrail('glitch'), (fresh)=>{ if(fresh) S.cosmetics.ownedTrails.glitch=true; equipTrail('glitch'); save(); }, 'Куплено: glitch', 'Надето: glitch');
+  });
+  buyTrailPlasma.addEventListener('click', ()=>{
+    buyCosmetic(500, ()=>ownTrail('plasma'), (fresh)=>{ if(fresh) S.cosmetics.ownedTrails.plasma=true; equipTrail('plasma'); save(); }, 'Куплено: plasma', 'Надето: plasma');
+  });
+
+  buyAuraGlow.addEventListener('click', ()=>{
+    buyCosmetic(350, ()=>ownAura('glow'), (fresh)=>{ if(fresh) S.cosmetics.ownedAuras.glow=true; equipAura('glow'); save(); }, 'Куплено: aura glow', 'Надето: aura glow');
+  });
+  buyAuraPulse.addEventListener('click', ()=>{
+    buyCosmetic(500, ()=>ownAura('pulse'), (fresh)=>{ if(fresh) S.cosmetics.ownedAuras.pulse=true; equipAura('pulse'); save(); }, 'Куплено: aura pulse', 'Надето: aura pulse');
+  });
+
+  buyHitSlash.addEventListener('click', ()=>{
+    buyCosmetic(350, ()=>ownHitFx('slash'), (fresh)=>{ if(fresh) S.cosmetics.ownedHitFx.slash=true; equipHitFx('slash'); save(); }, 'Куплено: HitFX slash', 'Включен: HitFX slash');
+  });
+  buyHitNova.addEventListener('click', ()=>{
+    buyCosmetic(600, ()=>ownHitFx('nova'), (fresh)=>{ if(fresh) S.cosmetics.ownedHitFx.nova=true; equipHitFx('nova'); save(); }, 'Куплено: HitFX nova', 'Включен: HitFX nova');
+  });
+
+  buyThemeCyber.addEventListener('click', ()=>{
+    buyCosmetic(450, ()=>ownTheme('cyber'), (fresh)=>{ if(fresh) S.cosmetics.ownedThemes.cyber=true; equipTheme('cyber'); save(); }, 'Куплено: тема cyber', 'Включена: тема cyber');
+  });
+  buyThemeVoid.addEventListener('click', ()=>{
+    buyCosmetic(450, ()=>ownTheme('void'), (fresh)=>{ if(fresh) S.cosmetics.ownedThemes.void=true; equipTheme('void'); save(); }, 'Куплено: тема void', 'Включена: тема void');
+  });
+
+  // chests
+  openCommon.addEventListener('click', ()=> openChest('common'));
+  openRare.addEventListener('click', ()=> openChest('rare'));
+  openLegend.addEventListener('click', ()=> openChest('legend'));
+
+  // admin
+  btnAdmin.addEventListener('click', ()=> showOverlay(adminOverlay));
+  adminLogin.addEventListener('click', ()=>{
+    const pass = (adminPass.value||'').trim();
+    if(pass === ADMIN_PASSWORD){
+      S.adminUnlocked = true;
+      adminPass.value = '';
+      setAdminUI();
+      updateUI(); save();
+      showToast('Админка: открыто 🔓');
+      fireConfetti(innerWidth*0.5, innerHeight*0.45, 38, 0.85, false, true);
+    }else{
+      alert('Неверный пароль 😈');
+    }
+  });
+  adminLogout.addEventListener('click', ()=>{
+    S.adminUnlocked = false;
+    setAdminUI();
+    updateUI(); save();
+    showToast('Админка: закрыто 🔒');
+  });
+
+  giveCoins1.addEventListener('click', ()=>{ if(!guardAdmin()) return; addCoins(500); updateUI(); save(); showToast('💰 +500'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.7, true); });
+  giveCoins2.addEventListener('click', ()=>{ if(!guardAdmin()) return; addCoins(2000); updateUI(); save(); showToast('💰 +2000'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 30, 0.85, true); });
+  giveSP1.addEventListener('click', ()=>{ if(!guardAdmin()) return; S.sp += 5; updateUI(); save(); showToast('⭐ SP +5'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.7, false, true); });
+  giveSP2.addEventListener('click', ()=>{ if(!guardAdmin()) return; S.sp += 20; updateUI(); save(); showToast('⭐ SP +20'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 30, 0.85, false, true); });
+
+  giveKeys1.addEventListener('click', ()=>{ if(!guardAdmin()) return; addKeys(5); updateUI(); save(); showToast('🔑 +5'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.75, true); });
+  giveKeys2.addEventListener('click', ()=>{ if(!guardAdmin()) return; addKeys(20); updateUI(); save(); showToast('🔑 +20'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 34, 0.9, true); });
+
+  // ----------------- controls buttons -----------------
+  btnShop.addEventListener('click', ()=> showOverlay(shopOverlay));
+  btnChest.addEventListener('click', ()=> showOverlay(chestOverlay));
+  btnUpgrades.addEventListener('click', ()=> showOverlay(upOverlay));
+  btnMenu.addEventListener('click', ()=> showOverlay(menuOverlay));
+
+  // ----------------- initial -----------------
+  updateUI();
+  setAdminUI();
+  paused = true;
+})();
+</script>
+</body>
+</html>
