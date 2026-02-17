@@ -1,0 +1,2267 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>RUSH ARENA — Weapons</title>
+  <style>
+    :root{
+      --bg:#050611;
+      --glass: rgba(255,255,255,.08);
+      --stroke: rgba(255,255,255,.14);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.68);
+      --acc:#7AA7FF;
+      --acc2:#B47CFF;
+      --good:#7CFFB2;
+      --warn:#FFD56A;
+      --bad:#FF6B8B;
+      --shadow: 0 22px 90px rgba(0,0,0,.55);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; overflow:hidden; }
+    canvas#game{
+      position:fixed; inset:0;
+      width:100vw; height:100vh;
+      display:block;
+      background:
+        radial-gradient(1200px 720px at 18% 18%, rgba(122,167,255,.18), rgba(0,0,0,0) 58%),
+        radial-gradient(1200px 760px at 86% 22%, rgba(180,124,255,.16), rgba(0,0,0,0) 60%),
+        radial-gradient(900px 700px at 70% 85%, rgba(255,213,106,.08), rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, #080a16, #050611);
+      z-index:0;
+      touch-action:none;
+    }
+
+    /* HUD */
+    .hud{
+      position:fixed;
+      left:12px; right:12px;
+      top: calc(10px + env(safe-area-inset-top));
+      display:flex; justify-content:space-between; gap:10px;
+      z-index:5;
+      pointer-events:none;
+    }
+    .hudBox{
+      pointer-events:auto;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .stats{
+      padding:10px 12px 12px;
+      min-width: 220px;
+      max-width: 62vw;
+    }
+    .line{ display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--muted); user-select:none; }
+    .line b{ color:var(--text); font-weight:950; }
+    .mono{ font-variant-numeric: tabular-nums; }
+    .bars{ margin-top:8px; display:flex; flex-direction:column; gap:7px; }
+    .bar{ height:9px; border-radius:999px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.22); overflow:hidden; }
+    .bar > i{ display:block; height:100%; width:50%; border-radius:999px; background: linear-gradient(90deg, var(--acc), var(--acc2)); }
+    .bar.hp > i{ background: linear-gradient(90deg, var(--good), #2EE59D); }
+    .bar.sh > i{ background: linear-gradient(90deg, rgba(122,167,255,.95), rgba(180,124,255,.95)); }
+
+    .hudRight{
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+      pointer-events:auto;
+      max-width: 46vw;
+    }
+    .btn{
+      border:1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      color:var(--text);
+      height:42px;
+      padding:0 12px;
+      border-radius: 16px;
+      font-weight:950;
+      font-size:13px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+      user-select:none;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn.primary{
+      border-color: rgba(122,167,255,.30);
+      background: linear-gradient(180deg, rgba(122,167,255,.18), rgba(180,124,255,.10));
+    }
+    .btn.warn{
+      border-color: rgba(255,213,106,.30);
+      background: linear-gradient(180deg, rgba(255,213,106,.18), rgba(255,213,106,.08));
+    }
+    .btn.danger{
+      border-color: rgba(255,107,139,.30);
+      background: linear-gradient(180deg, rgba(255,107,139,.18), rgba(255,107,139,.08));
+    }
+
+    /* Overlays */
+    .overlay{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      padding:14px;
+      background: rgba(0,0,0,.60);
+      backdrop-filter: blur(8px);
+      z-index:20;
+
+      /* ВОТ ЭТО ВАЖНО ДЛЯ СКРОЛЛА НА iOS */
+      touch-action: pan-y;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .overlay.show{ display:flex; }
+
+    .panel{
+      width:min(720px, 100%);
+      max-height: min(82vh, 860px);
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 30px 110px rgba(0,0,0,.65);
+      position:relative;
+    }
+    .panelHeader{
+      padding:14px 14px 12px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      position:sticky; top:0;
+      background: linear-gradient(180deg, rgba(15,18,34,.92), rgba(15,18,34,.72));
+      backdrop-filter: blur(10px);
+      z-index:2;
+    }
+    .panelHeader h2{ margin:0; font-size:16px; font-weight:950; }
+    .panelHeader p{ margin:4px 0 0; font-size:12px; color:var(--muted); line-height:1.25; }
+    .panelBody{ padding:12px 14px 14px; }
+
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .card{
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding:12px;
+    }
+    .card h3{ margin:0 0 6px; font-size:13px; font-weight:950; }
+    .card p{ margin:0 0 10px; font-size:12px; color:var(--muted); line-height:1.35; }
+    .row2{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .tag{
+      font-size:11px;
+      color:rgba(255,255,255,.78);
+      padding:5px 9px;
+      border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      font-weight:900;
+    }
+    .price{ font-weight:950; color:var(--warn); }
+    .wide{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .wide .btn{ flex:1; justify-content:center; }
+
+    .input{
+      width:100%;
+      padding:12px 12px;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      outline:none;
+      font-size:14px;
+    }
+
+    /* Toast */
+    .toast{
+      position:fixed;
+      left:12px; right:12px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      display:flex; justify-content:center;
+      z-index:30;
+      pointer-events:none;
+    }
+    .toast > div{
+      max-width: min(620px, 100%);
+      background: rgba(10,12,20,.78);
+      border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,.90);
+      border-radius: 18px;
+      padding:10px 12px;
+      font-size:13px;
+      font-weight:900;
+      box-shadow: 0 20px 80px rgba(0,0,0,.55);
+      transform: translateY(14px);
+      opacity:0;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .toast.show > div{ transform: translateY(0); opacity:1; }
+
+    /* Skill chips */
+    .skillHUD{
+      position:fixed;
+      right:12px;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      z-index:6;
+      pointer-events:none;
+    }
+    .skillChip{
+      width:58px; height:58px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      display:flex; align-items:center; justify-content:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .skillChip .ico{ position:relative; font-size:20px; z-index:1; }
+    .skillChip .cd{
+      position:absolute; inset:0;
+      background: rgba(0,0,0,.42);
+      display:flex; align-items:center; justify-content:center;
+      font-weight:950; font-size:14px;
+      opacity:0;
+      transition: opacity .12s ease;
+      z-index:2;
+    }
+    .skillChip.cool .cd{ opacity:1; }
+    .skillChip .hint{
+      position:absolute; left:8px; right:8px; bottom:6px;
+      font-size:10px; color: rgba(255,255,255,.72);
+      text-align:center; font-weight:900; z-index:1;
+    }
+
+    @media (max-width: 420px){
+      .stats{ min-width: 206px; max-width: 66vw; }
+      .btn{ height:40px; font-size:12.5px; border-radius: 15px; }
+      .grid{ grid-template-columns: 1fr; }
+      .skillChip{ width:54px; height:54px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="hudBox stats">
+      <div class="line">
+        <div>Ур. <b class="mono" id="uiLevel">1</b> <span id="uiStage" style="margin-left:8px; color:rgba(255,255,255,.62)"></span></div>
+        <div>💰 <b class="mono" id="uiCoins">0</b></div>
+      </div>
+      <div class="bars">
+        <div class="bar hp"><i id="uiHpBar"></i></div>
+        <div class="bar sh"><i id="uiShieldBar"></i></div>
+        <div class="bar"><i id="uiXpBar"></i></div>
+      </div>
+      <div class="line" style="margin-top:8px;">
+        <div>HP: <b class="mono" id="uiHpText">0/0</b></div>
+        <div>🔑 <b class="mono" id="uiKeys">0</b></div>
+      </div>
+      <div class="line">
+        <div>XP: <b class="mono" id="uiXpText">0/0</b></div>
+        <div>⚙️ WP: <b class="mono" id="uiWP">0</b></div>
+      </div>
+      <div class="line">
+        <div>Оружие: <b class="mono" id="uiWeapon">gun</b></div>
+        <div>Щит: <b class="mono" id="uiShieldText">0</b></div>
+      </div>
+    </div>
+
+    <div class="hudRight">
+      <button class="btn primary" id="btnShop">🛍️ Магазин</button>
+      <button class="btn" id="btnWeapons">🔫 Оружие</button>
+      <button class="btn warn" id="btnChest">🎁 Сундуки</button>
+      <button class="btn danger" id="btnMenu">☰ Меню</button>
+    </div>
+  </div>
+
+  <div class="skillHUD">
+    <div class="skillChip" id="chipDash"><div class="ico">💨</div><div class="cd" id="cdDash">0.0</div><div class="hint">рывок</div></div>
+    <div class="skillChip" id="chipShield"><div class="ico">🛡️</div><div class="cd" id="cdShield">0.0</div><div class="hint">щит</div></div>
+  </div>
+
+  <div class="toast" id="toast"><div id="toastText">—</div></div>
+
+  <!-- Start -->
+  <div class="overlay show" id="startOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>RUSH ARENA</h2>
+          <p>
+            Управление: <b>веди пальцем в любом месте</b> — движение. Стрельба/атака — <b>авто</b>.
+            Рывок: <b>быстрый свайп</b>. Щит: <b>тап 2 пальцами</b>.
+          </p>
+        </div>
+        <button class="btn danger" id="btnResetSave">🧨 Сброс</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <h3>Суть</h3>
+          <p>
+            Волны, уровни, боссы каждые <b>5</b> уровней. Монеты 💰, ключи 🔑, сундуки 🎁.
+            Оружие: <b>Пули / Иглы / Пилы</b> + прокачка за <b>WP</b> (weapon points).
+          </p>
+          <div class="row2">
+            <span class="tag">Авто-атака</span>
+            <span class="tag">Weapon upgrades</span>
+            <span class="tag">Boss fight</span>
+            <span class="tag">Damage numbers</span>
+          </div>
+        </div>
+        <div class="wide">
+          <button class="btn primary" id="btnPlay">▶️ Играть</button>
+          <button class="btn" id="btnHelp">❔ Помощь</button>
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:rgba(255,255,255,.70); line-height:1.35;">
+          Айфон: Safari → Поделиться → <b>На экран «Домой»</b>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div class="overlay" id="menuOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Меню</h2>
+          <p>Пауза / новый забег / админка</p>
+        </div>
+        <button class="btn" data-close="menuOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="grid">
+          <div class="card">
+            <h3>Жесты</h3>
+            <p>
+              • Веди пальцем — движение<br>
+              • Быстрый свайп — рывок 💨<br>
+              • Тап 2 пальцами — щит 🛡️
+            </p>
+            <div class="row2">
+              <span class="tag">в любом месте</span>
+              <span class="tag">мобильно</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Админ-панель</h3>
+            <p>Пароль: <b>1235</b>. Можно выдать себе 💰, 🔑 и WP.</p>
+            <div class="row2">
+              <button class="btn warn" id="btnAdmin">🛠️ Открыть</button>
+              <span class="tag">local</span>
+            </div>
+          </div>
+        </div>
+        <div class="wide">
+          <button class="btn primary" id="btnResume">▶️ Продолжить</button>
+          <button class="btn danger" id="btnRestart">🔄 Новый забег</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop (general) -->
+  <div class="overlay" id="shopOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Магазин</h2>
+          <p>Покупки за 💰. Здесь — усиления экономики.</p>
+        </div>
+        <button class="btn" data-close="shopOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>Баланс: 💰 <b class="mono" id="uiShopCoins">0</b></div>
+            <span class="tag">не ломает игру</span>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Магнит монет</h3>
+            <p>Монеты летят к тебе сильнее.</p>
+            <div class="row2">
+              <span class="price">300</span>
+              <button class="btn primary" id="buyMagnet">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Бонус к дропу</h3>
+            <p>+20% шанс доп. монет за убийство.</p>
+            <div class="row2">
+              <span class="price">450</span>
+              <button class="btn primary" id="buyDrop">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Стартовый ключ</h3>
+            <p>Сразу +1 🔑.</p>
+            <div class="row2">
+              <span class="price">250</span>
+              <button class="btn primary" id="buyKey">Купить</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>WP бустер</h3>
+            <p>+1 WP при каждом повышении уровня (дополнительно).</p>
+            <div class="row2">
+              <span class="price">600</span>
+              <button class="btn primary" id="buyWPBoost">Купить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px;">
+          <h3>Статус</h3>
+          <div class="row2">
+            <span class="tag">Магнит: <b class="mono" id="uiMagnet">0</b></span>
+            <span class="tag">Дроп+: <b class="mono" id="uiDrop">0</b></span>
+            <span class="tag">WP+: <b class="mono" id="uiWPBoost">0</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weapons -->
+  <div class="overlay" id="weaponsOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Оружие</h2>
+          <p>Покупай за 💰, прокачивай за WP.</p>
+        </div>
+        <button class="btn" data-close="weaponsOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>💰 <b class="mono" id="uiWCoins">0</b></div>
+            <div>WP <b class="mono" id="uiWWP">0</b></div>
+          </div>
+          <p style="margin-top:10px;">
+            Сейчас выбрано: <b id="uiWSelected">gun</b>.
+          </p>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>🔫 Пушки (Gun)</h3>
+            <p>Авто-стрельба по ближайшему. Улучшения: урон / скорострельность / мультивыстрел.</p>
+            <div class="row2">
+              <span class="tag">Owned: <b class="mono" id="ownGun">0</b></span>
+              <button class="btn primary" id="buyGun">Купить 200</button>
+              <button class="btn" id="equipGun">Надеть</button>
+            </div>
+            <div class="wide">
+              <button class="btn" id="upGunDmg">WP: Урон +1</button>
+              <button class="btn" id="upGunRate">WP: Скорость +</button>
+              <button class="btn" id="upGunMulti">WP: Доп.пуля</button>
+            </div>
+            <div class="row2" style="margin-top:8px;">
+              <span class="tag">DMG <b class="mono" id="gunDmg">1</b></span>
+              <span class="tag">RATE <b class="mono" id="gunRate">1</b></span>
+              <span class="tag">MULTI <b class="mono" id="gunMulti">1</b></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>🪡 Иглы (Needle)</h3>
+            <p>Быстрые иглы, могут пробивать врагов. Улучшения: урон / скорость / пробитие.</p>
+            <div class="row2">
+              <span class="tag">Owned: <b class="mono" id="ownNeedle">0</b></span>
+              <button class="btn primary" id="buyNeedle">Купить 300</button>
+              <button class="btn" id="equipNeedle">Надеть</button>
+            </div>
+            <div class="wide">
+              <button class="btn" id="upNeedleDmg">WP: Урон +1</button>
+              <button class="btn" id="upNeedleSpd">WP: Скорость +</button>
+              <button class="btn" id="upNeedlePierce">WP: Пробитие +</button>
+            </div>
+            <div class="row2" style="margin-top:8px;">
+              <span class="tag">DMG <b class="mono" id="needleDmg">1</b></span>
+              <span class="tag">SPD <b class="mono" id="needleSpd">1</b></span>
+              <span class="tag">PIERCE <b class="mono" id="needlePierce">0</b></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>🪚 Пилы (Saws)</h3>
+            <p>Пилы крутятся вокруг тебя и режут всё. Улучшения: урон / количество / радиус.</p>
+            <div class="row2">
+              <span class="tag">Owned: <b class="mono" id="ownSaw">0</b></span>
+              <button class="btn primary" id="buySaw">Купить 400</button>
+              <button class="btn" id="equipSaw">Надеть</button>
+            </div>
+            <div class="wide">
+              <button class="btn" id="upSawDmg">WP: Урон +1</button>
+              <button class="btn" id="upSawCount">WP: Пила +1</button>
+              <button class="btn" id="upSawRadius">WP: Радиус +</button>
+            </div>
+            <div class="row2" style="margin-top:8px;">
+              <span class="tag">DMG <b class="mono" id="sawDmg">1</b></span>
+              <span class="tag">COUNT <b class="mono" id="sawCount">1</b></span>
+              <span class="tag">RADIUS <b class="mono" id="sawRadius">1</b></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Примечание</h3>
+            <p>WP даётся за уровень и сундуки. С пушками проще, пилы — мощь на толпе, иглы — против жирных.</p>
+            <div class="row2">
+              <span class="tag">билды</span>
+              <span class="tag">баланс</span>
+              <span class="tag">кайф</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chests -->
+  <div class="overlay" id="chestOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Сундуки</h2>
+          <p>За 🔑 или 💰. Дают монеты/ключи/WP/бафы.</p>
+        </div>
+        <button class="btn" data-close="chestOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <div class="row2">
+            <div>🔑 <b class="mono" id="uiChestKeys">0</b></div>
+            <div>💰 <b class="mono" id="uiChestCoins">0</b></div>
+          </div>
+          <p style="margin-top:10px;">Салют будет 😈</p>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>Обычный</h3>
+            <p>Норм лут.</p>
+            <div class="row2">
+              <span class="tag">1 🔑 или 200 💰</span>
+              <button class="btn primary" id="openCommon">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Редкий</h3>
+            <p>Чуть лучше.</p>
+            <div class="row2">
+              <span class="tag">2 🔑 или 350 💰</span>
+              <button class="btn primary" id="openRare">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Легендарный</h3>
+            <p>WP чаще.</p>
+            <div class="row2">
+              <span class="tag">3 🔑 или 500 💰</span>
+              <button class="btn primary" id="openLegend">Открыть</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Боссы</h3>
+            <p>Каждые 5 уровней — босс. За босса ключи.</p>
+            <div class="row2">
+              <span class="tag">уровень % 5</span>
+              <span class="tag">БОСС</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:10px;">
+          <h3>Последний лут</h3>
+          <p id="lootText" style="margin:0; color:rgba(255,255,255,.86); font-weight:900;">—</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin -->
+  <div class="overlay" id="adminOverlay">
+    <div class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2>Админ-панель</h2>
+          <p>Пароль → выдача 💰 / 🔑 / WP</p>
+        </div>
+        <button class="btn" data-close="adminOverlay">✖</button>
+      </div>
+      <div class="panelBody">
+        <div class="card">
+          <h3>Пароль</h3>
+          <p>Введи пароль, чтобы включить кнопки.</p>
+          <input class="input" id="adminPass" type="password" inputmode="numeric" placeholder="Пароль..." />
+          <div class="wide">
+            <button class="btn primary" id="adminLogin">Войти</button>
+            <button class="btn" id="adminLogout">Выйти</button>
+          </div>
+          <div style="margin-top:8px; font-size:12px; color:rgba(255,255,255,.72); font-weight:900;" id="adminState">Статус: 🔒 закрыто</div>
+        </div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div class="card">
+            <h3>💰 Монеты</h3>
+            <p>Выдать бесплатно.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveCoins1">+500</button>
+              <button class="btn warn" id="giveCoins2">+2000</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>🔑 Ключи</h3>
+            <p>Для сундуков.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveKeys1">+5</button>
+              <button class="btn warn" id="giveKeys2">+20</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>⚙️ WP</h3>
+            <p>Очки прокачки оружия.</p>
+            <div class="row2">
+              <button class="btn warn" id="giveWP1">+5</button>
+              <button class="btn warn" id="giveWP2">+25</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Важно</h3>
+            <p>Это локальный чит-режим (без сервера). Для соло норм.</p>
+            <div class="row2">
+              <span class="tag">local</span>
+              <span class="tag">offline</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+
+  const $ = id => document.getElementById(id);
+
+  // ---------- canvas ----------
+  const canvas = $('game');
+  const ctx = canvas.getContext('2d', { alpha:false });
+
+  function resize(){
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(innerWidth * dpr);
+    canvas.height = Math.floor(innerHeight * dpr);
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // ---------- save ----------
+  const SAVE_KEY = 'rush_arena_weapons_v1';
+  const ADMIN_PASSWORD = '1235';
+
+  const defaultSave = () => ({
+    coins: 0,
+    keys: 0,
+    level: 1,
+    xp: 0,
+    wp: 0,                 // weapon points
+    magnet: 0,
+    dropPlus: 0,
+    wpBoost: 0,
+
+    weapons: {
+      owned: { gun:true, needle:false, saw:false },
+      equipped: 'gun',
+      gun:   { dmg:1, rate:1, multi:1 },
+      needle:{ dmg:1, spd:1, pierce:0 },
+      saw:   { dmg:1, count:1, radius:1 },
+    },
+    adminUnlocked:false
+  });
+
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return defaultSave();
+      const s = JSON.parse(raw);
+      const d = defaultSave();
+      return {
+        ...d, ...s,
+        weapons:{
+          ...d.weapons, ...(s.weapons||{}),
+          owned:{...d.weapons.owned, ...((s.weapons||{}).owned||{})},
+          gun:{...d.weapons.gun, ...((s.weapons||{}).gun||{})},
+          needle:{...d.weapons.needle, ...((s.weapons||{}).needle||{})},
+          saw:{...d.weapons.saw, ...((s.weapons||{}).saw||{})},
+        }
+      };
+    }catch{
+      return defaultSave();
+    }
+  }
+
+  let S = loadSave();
+  const save = ()=> localStorage.setItem(SAVE_KEY, JSON.stringify(S));
+
+  // ---------- UI refs ----------
+  const uiLevel=$('uiLevel'), uiStage=$('uiStage'), uiCoins=$('uiCoins'), uiKeys=$('uiKeys');
+  const uiHpBar=$('uiHpBar'), uiShieldBar=$('uiShieldBar'), uiXpBar=$('uiXpBar');
+  const uiHpText=$('uiHpText'), uiShieldText=$('uiShieldText'), uiXpText=$('uiXpText');
+  const uiWP=$('uiWP'), uiWeapon=$('uiWeapon');
+
+  const startOverlay=$('startOverlay');
+  const menuOverlay=$('menuOverlay'), shopOverlay=$('shopOverlay'), weaponsOverlay=$('weaponsOverlay'), chestOverlay=$('chestOverlay'), adminOverlay=$('adminOverlay');
+
+  const btnPlay=$('btnPlay'), btnHelp=$('btnHelp'), btnResetSave=$('btnResetSave');
+  const btnMenu=$('btnMenu'), btnResume=$('btnResume'), btnRestart=$('btnRestart');
+  const btnShop=$('btnShop'), btnWeapons=$('btnWeapons'), btnChest=$('btnChest'), btnAdmin=$('btnAdmin');
+
+  const uiShopCoins=$('uiShopCoins'), uiMagnet=$('uiMagnet'), uiDrop=$('uiDrop'), uiWPBoost=$('uiWPBoost');
+  const buyMagnet=$('buyMagnet'), buyDrop=$('buyDrop'), buyKey=$('buyKey'), buyWPBoost=$('buyWPBoost');
+
+  const uiWCoins=$('uiWCoins'), uiWWP=$('uiWWP'), uiWSelected=$('uiWSelected');
+  const ownGun=$('ownGun'), ownNeedle=$('ownNeedle'), ownSaw=$('ownSaw');
+  const buyGun=$('buyGun'), buyNeedle=$('buyNeedle'), buySaw=$('buySaw');
+  const equipGun=$('equipGun'), equipNeedle=$('equipNeedle'), equipSaw=$('equipSaw');
+
+  const upGunDmg=$('upGunDmg'), upGunRate=$('upGunRate'), upGunMulti=$('upGunMulti');
+  const upNeedleDmg=$('upNeedleDmg'), upNeedleSpd=$('upNeedleSpd'), upNeedlePierce=$('upNeedlePierce');
+  const upSawDmg=$('upSawDmg'), upSawCount=$('upSawCount'), upSawRadius=$('upSawRadius');
+
+  const gunDmg=$('gunDmg'), gunRate=$('gunRate'), gunMulti=$('gunMulti');
+  const needleDmg=$('needleDmg'), needleSpd=$('needleSpd'), needlePierce=$('needlePierce');
+  const sawDmg=$('sawDmg'), sawCount=$('sawCount'), sawRadius=$('sawRadius');
+
+  const uiChestKeys=$('uiChestKeys'), uiChestCoins=$('uiChestCoins');
+  const openCommon=$('openCommon'), openRare=$('openRare'), openLegend=$('openLegend');
+  const lootText=$('lootText');
+
+  const adminPass=$('adminPass'), adminLogin=$('adminLogin'), adminLogout=$('adminLogout'), adminState=$('adminState');
+  const giveCoins1=$('giveCoins1'), giveCoins2=$('giveCoins2');
+  const giveKeys1=$('giveKeys1'), giveKeys2=$('giveKeys2');
+  const giveWP1=$('giveWP1'), giveWP2=$('giveWP2');
+
+  const toast=$('toast'), toastText=$('toastText');
+
+  const chipDash=$('chipDash'), chipShield=$('chipShield');
+  const cdDash=$('cdDash'), cdShield=$('cdShield');
+
+  // ---------- overlays (FIX SCROLL/CLOSE) ----------
+  let paused = true;
+
+  function showToast(msg){
+    toastText.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 1600);
+  }
+
+  function setCanvasEnabled(on){
+    // когда меню открыто — canvas НЕ ловит тач (иначе айфон бесится)
+    canvas.style.pointerEvents = on ? 'auto' : 'none';
+  }
+
+  function showOverlay(el){
+    el.classList.add('show');
+    paused = true;
+    setCanvasEnabled(false);
+    updateUI();
+  }
+
+  function hideOverlay(id){
+    $(id).classList.remove('show');
+    // если никакие оверлеи не открыты — возвращаем игру
+    const anyOpen = document.querySelector('.overlay.show') && !startOverlay.classList.contains('show');
+    if(!anyOpen){
+      paused = false;
+      setCanvasEnabled(true);
+    }
+    updateUI();
+    save();
+  }
+
+  // закрытие по фону
+  document.querySelectorAll('.overlay').forEach(ov=>{
+    ov.addEventListener('click', (e)=>{
+      if(e.target === ov){
+        ov.classList.remove('show');
+        const any = document.querySelector('.overlay.show') && !startOverlay.classList.contains('show');
+        if(!any){
+          paused = false;
+          setCanvasEnabled(true);
+        }
+        updateUI(); save();
+      }
+    }, {passive:true});
+  });
+
+  // крестики
+  document.querySelectorAll('[data-close]').forEach(b=>{
+    b.addEventListener('click', ()=> hideOverlay(b.getAttribute('data-close')));
+  });
+
+  // ---------- game constants ----------
+  const world = {
+    pad: 44,
+    topPad: 74,
+    w: ()=> innerWidth,
+    h: ()=> innerHeight
+  };
+
+  function xpNeed(lv){
+    return Math.floor(70 + lv*28 + Math.pow(lv,1.25)*6);
+  }
+  const isBossLevel = lv => lv % 5 === 0;
+
+  // ---------- entities ----------
+  const player = {
+    x: innerWidth*0.5,
+    y: innerHeight*0.62,
+    r: 14,
+    vx:0, vy:0,
+    maxHp: 120,
+    hp: 120,
+
+    shield: 0,
+    shieldMax: 60,
+    shieldTime: 0,
+
+    dashCd: 0,
+    dashTime: 0,
+    dashVx: 0,
+    dashVy: 0,
+
+    hitFlash:0,
+  };
+
+  const enemies = [];
+  const bullets = [];     // gun / needle
+  const sawBlades = [];   // runtime blades
+  const coinsDrops = [];
+  const particles = [];
+  const confetti = [];
+  const damageTexts = [];
+
+  let wave = 1;
+  let enemiesToSpawn = 4;
+
+  // ---------- weapons logic ----------
+  function weaponName(){
+    return S.weapons.equipped;
+  }
+
+  function weaponStats(){
+    const w = weaponName();
+    return S.weapons[w];
+  }
+
+  function ensureSaws(){
+    // создаём/удаляем пилы под count
+    const c = S.weapons.saw.count;
+    while(sawBlades.length < c){
+      sawBlades.push({ ang: rnd(0,Math.PI*2), hitCd:0 });
+    }
+    while(sawBlades.length > c){
+      sawBlades.pop();
+    }
+  }
+
+  function gunFireDelay(){
+    // чем больше rate — тем чаще стреляет
+    const r = S.weapons.gun.rate;
+    return clamp(0.36 - (r-1)*0.04, 0.12, 0.36);
+  }
+
+  function needleFireDelay(){
+    // иглы чуть реже, но сильнее/быстрее
+    const s = S.weapons.needle.spd;
+    return clamp(0.46 - (s-1)*0.03, 0.18, 0.46);
+  }
+
+  let gunTimer = 0;
+  let needleTimer = 0;
+
+  // ---------- economy ----------
+  function addCoins(n){ S.coins += n; }
+  function addKeys(n){ S.keys = Math.max(0, S.keys + n); }
+
+  function addXp(n){
+    S.xp += n;
+    while(S.xp >= xpNeed(S.level)){
+      S.xp -= xpNeed(S.level);
+      S.level += 1;
+      // WP за уровень
+      S.wp += 1 + (S.wpBoost ? 1 : 0);
+
+      // подхил
+      player.hp = clamp(player.hp + player.maxHp*0.35, 0, player.maxHp);
+    }
+  }
+
+  // ---------- damage numbers ----------
+  function addDamageText(x,y,amount,crit,isPlayerHit=false){
+    const txt = Math.max(1, Math.round(amount)).toString();
+    damageTexts.push({
+      x, y,
+      vy: rnd(-55,-85),
+      vx: rnd(-18,18),
+      t: 0,
+      life: isPlayerHit ? 0.85 : 0.75,
+      txt,
+      crit,
+      isPlayerHit
+    });
+  }
+
+  // ---------- particles/confetti ----------
+  function fireConfetti(x,y,amount=26,power=0.7, gold=false, purple=false){
+    for(let i=0;i<amount;i++){
+      const ang = rnd(0, Math.PI*2);
+      const sp  = rnd(220, 720) * power;
+      const size= rnd(2.2, 4.8);
+      const life= rnd(0.55, 1.05);
+      const spin= rnd(-14, 14);
+
+      const pal = purple
+        ? ['#B47CFF','#7AA7FF','#FFFFFF']
+        : gold
+          ? ['#FFD56A','#FF6B8B','#FFFFFF']
+          : ['#7AA7FF','#B47CFF','#FFD56A','#7CFFB2','#FFFFFF'];
+
+      confetti.push({
+        x, y,
+        vx: Math.cos(ang)*sp,
+        vy: Math.sin(ang)*sp - rnd(60,220),
+        g: rnd(520, 980),
+        r: size,
+        life,
+        t: 0,
+        rot: rnd(0, Math.PI*2),
+        spin,
+        col: pal[(Math.random()*pal.length)|0],
+        rect: Math.random()<0.55
+      });
+    }
+  }
+
+  function hitBurst(x,y,crit){
+    for(let i=0;i<10;i++){
+      particles.push({
+        x,y,
+        vx:rnd(-200,200),
+        vy:rnd(-240,90),
+        life:rnd(0.22,0.44),
+        t:0,
+        r:rnd(1.6,3.6),
+        crit
+      });
+    }
+  }
+
+  // ---------- enemies / boss ----------
+  function spawnEnemy(kind='mob'){
+    const pad=world.pad;
+    const x = rnd(pad, world.w()-pad);
+    const y = rnd(world.topPad+pad, world.h()-pad);
+
+    const lv=S.level;
+    let hp=42+lv*10, spd=105+lv*2.2, dmg=10+lv*1.25, r=12;
+
+    if(kind==='brute'){ hp*=1.9; spd*=0.78; dmg*=1.35; r=15; }
+    if(kind==='runner'){ hp*=0.85; spd*=1.45; dmg*=0.95; r=11; }
+
+    if(kind==='boss'){
+      hp=360 + lv*85;
+      spd=130 + lv*1.6;
+      dmg=22 + lv*2.4;
+      r=30;
+      enemies.push({
+        x,y,r, vx:0,vy:0,
+        hp,maxHp:hp,
+        spd,dmg,
+        kind,
+        atkCd:rnd(0.35,0.65),
+        hitFlash:0,
+        phase:1,
+        shootCd: 1.6,
+        chargeCd: 2.8,
+        charging:0,
+        cVx:0,cVy:0
+      });
+      return;
+    }
+
+    enemies.push({ x,y,r, vx:0,vy:0, hp,maxHp:hp, spd,dmg, kind, atkCd:rnd(0.4,1.1), hitFlash:0 });
+  }
+
+  function spawnWave(){
+    enemies.length=0;
+    bullets.length=0;
+    coinsDrops.length=0;
+
+    const count = enemiesToSpawn + Math.floor(wave*0.7);
+    for(let i=0;i<count;i++){
+      const t=Math.random();
+      if(t<0.16) spawnEnemy('runner');
+      else if(t<0.36) spawnEnemy('brute');
+      else spawnEnemy('mob');
+    }
+  }
+
+  function startLevel(){
+    wave=1;
+    enemies.length=0;
+    bullets.length=0;
+    coinsDrops.length=0;
+    particles.length=0;
+    confetti.length=0;
+    damageTexts.length=0;
+
+    player.maxHp = 120 + Math.floor(S.level*3);
+    player.hp = player.maxHp;
+    player.shieldMax = 60 + Math.floor(S.level*2);
+    player.shield = 0;
+    player.shieldTime = 0;
+
+    gunTimer = 0;
+    needleTimer = 0;
+
+    ensureSaws();
+
+    if(isBossLevel(S.level)) spawnEnemy('boss');
+    else{
+      enemiesToSpawn = 4 + Math.floor(S.level*0.65);
+      spawnWave();
+    }
+  }
+
+  function nearestEnemy(){
+    if(!enemies.length) return null;
+    let best=null, bd=1e9;
+    for(const e of enemies){
+      const d=dist(player.x,player.y,e.x,e.y);
+      if(d<bd){ bd=d; best=e; }
+    }
+    return best;
+  }
+
+  function takeDamage(amount){
+    let left = amount;
+    if(player.shield > 0){
+      const use = Math.min(player.shield, left);
+      player.shield -= use;
+      left -= use;
+    }
+    if(left > 0) player.hp -= left;
+    addDamageText(player.x, player.y - 18, amount, false, true);
+  }
+
+  function bossShoot(boss){
+    // простые болванки в игрока
+    const dx = player.x - boss.x;
+    const dy = player.y - boss.y;
+    const d = Math.hypot(dx,dy)||1;
+    const speed = 420 + S.level*6;
+    bullets.push({
+      x: boss.x + (dx/d)*(boss.r+6),
+      y: boss.y + (dy/d)*(boss.r+6),
+      vx: (dx/d)*speed,
+      vy: (dy/d)*speed,
+      r: 7,
+      life: 3.2,
+      t: 0,
+      dmg: Math.max(10, boss.dmg*0.85),
+      enemyBullet:true,
+      pierce:0
+    });
+  }
+
+  function enemyUpdate(e,dt){
+    const pad=world.pad;
+
+    if(e.kind==='boss'){
+      e.phase = (e.hp/e.maxHp < 0.5) ? 2 : 1;
+
+      e.shootCd -= dt;
+      e.chargeCd -= dt;
+
+      const dx=player.x-e.x, dy=player.y-e.y;
+      const d=Math.hypot(dx,dy)||1;
+
+      if(e.charging>0){
+        e.charging -= dt;
+        e.vx = e.cVx; e.vy = e.cVy;
+      }else{
+        // chase
+        e.vx += (dx/d)*e.spd*dt;
+        e.vy += (dy/d)*e.spd*dt;
+        e.vx *= Math.pow(0.0005, dt);
+        e.vy *= Math.pow(0.0005, dt);
+
+        if(e.shootCd<=0 && d>120){
+          bossShoot(e);
+          e.shootCd = (e.phase===2 ? 1.0 : 1.5);
+        }
+        if(e.chargeCd<=0 && d>170){
+          const sp = (e.phase===2 ? 860 : 740);
+          e.charging = (e.phase===2 ? 0.22 : 0.18);
+          e.cVx = (dx/d)*sp;
+          e.cVy = (dy/d)*sp;
+          e.chargeCd = (e.phase===2 ? 2.2 : 2.8);
+          fireConfetti(e.x,e.y,18,0.55,false,true);
+        }
+      }
+
+      e.x += e.vx*dt; e.y += e.vy*dt;
+      e.x = clamp(e.x, pad, world.w()-pad);
+      e.y = clamp(e.y, world.topPad+pad, world.h()-pad);
+
+      // melee
+      e.atkCd -= dt;
+      const range = e.r + player.r + 22;
+      if(e.atkCd<=0 && d < range){
+        e.atkCd = (e.phase===2 ? 0.42 : 0.56);
+        takeDamage(e.dmg);
+        player.hitFlash = 0.12;
+        hitBurst(player.x,player.y,false);
+        const nx=(player.x-e.x)/(d||1), ny=(player.y-e.y)/(d||1);
+        player.vx += nx*300; player.vy += ny*300;
+      }
+
+      e.hitFlash = Math.max(0, e.hitFlash - dt);
+      return;
+    }
+
+    // normal mobs
+    const dx=player.x-e.x, dy=player.y-e.y;
+    const d=Math.hypot(dx,dy)||1;
+
+    e.vx += (dx/d)*e.spd*dt;
+    e.vy += (dy/d)*e.spd*dt;
+    e.vx *= Math.pow(0.0006, dt);
+    e.vy *= Math.pow(0.0006, dt);
+
+    e.x += e.vx*dt; e.y += e.vy*dt;
+    e.x = clamp(e.x, pad, world.w()-pad);
+    e.y = clamp(e.y, world.topPad+pad, world.h()-pad);
+
+    e.atkCd -= dt;
+    const range = e.r + player.r + 12;
+    if(e.atkCd<=0 && d < range){
+      e.atkCd = 0.78;
+      takeDamage(e.dmg);
+      player.hitFlash = 0.10;
+      hitBurst(player.x,player.y,false);
+      const nx=(player.x-e.x)/(d||1), ny=(player.y-e.y)/(d||1);
+      player.vx += nx*240; player.vy += ny*240;
+    }
+
+    e.hitFlash = Math.max(0, e.hitFlash - dt);
+  }
+
+  // ---------- controls (move anywhere + dash + 2finger shield) ----------
+  let moveTarget = { active:false, x:player.x, y:player.y };
+
+  function setMoveTarget(x,y){ moveTarget.active=true; moveTarget.x=x; moveTarget.y=y; }
+  function clearMoveTarget(){ moveTarget.active=false; }
+
+  let pointer = {
+    active:false,
+    id:null,
+    x:0, y:0,
+    startX:0, startY:0,
+    startT:0,
+    lastX:0, lastY:0,
+    vx:0, vy:0
+  };
+  let twoFingerTapTimer = 0;
+
+  function tryDash(dirX, dirY){
+    if(player.dashCd > 0 || player.dashTime > 0) return false;
+    let dx=dirX, dy=dirY;
+    let m=Math.hypot(dx,dy);
+
+    if(m < 0.01){
+      const e = nearestEnemy();
+      if(e){
+        dx = e.x - player.x;
+        dy = e.y - player.y;
+        m = Math.hypot(dx,dy);
+      }
+    }
+    if(m < 0.01){ dx=0; dy=-1; m=1; }
+    dx/=m; dy/=m;
+
+    player.dashTime = 0.16;
+    const dashSpeed = 780;
+    player.dashVx = dx*dashSpeed;
+    player.dashVy = dy*dashSpeed;
+    player.dashCd = 2.6;
+
+    fireConfetti(player.x, player.y, 16, 0.55, true);
+    return true;
+  }
+
+  function tryShield(){
+    if(player.shieldTime > 0 || player.shieldCd > 0) return false;
+    player.shield = player.shieldMax;
+    player.shieldTime = 3.2;
+    player.shieldCd = 7.5;
+    fireConfetti(player.x, player.y, 22, 0.70, false, true);
+    return true;
+  }
+
+  canvas.addEventListener('touchstart', (e)=>{
+    e.preventDefault();
+    if(paused) return;
+
+    if(e.touches.length >= 2){
+      twoFingerTapTimer = performance.now();
+      return;
+    }
+    const t = e.changedTouches[0];
+    pointer.active = true;
+    pointer.id = t.identifier;
+    pointer.x = pointer.lastX = pointer.startX = t.clientX;
+    pointer.y = pointer.lastY = pointer.startY = t.clientY;
+    pointer.startT = performance.now();
+    setMoveTarget(pointer.x, pointer.y);
+  }, {passive:false});
+
+  canvas.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    if(paused) return;
+    if(e.touches.length >= 2) return;
+
+    const list = [...e.changedTouches];
+    const t = list.find(tt => tt.identifier === pointer.id);
+    if(!t || !pointer.active) return;
+
+    const now = performance.now();
+    const dx = t.clientX - pointer.lastX;
+    const dy = t.clientY - pointer.lastY;
+    const dt = Math.max(1, now - (pointer._lt || now));
+    pointer._lt = now;
+
+    pointer.vx = dx / dt;
+    pointer.vy = dy / dt;
+
+    pointer.lastX = pointer.x;
+    pointer.lastY = pointer.y;
+    pointer.x = t.clientX;
+    pointer.y = t.clientY;
+
+    setMoveTarget(pointer.x, pointer.y);
+  }, {passive:false});
+
+  canvas.addEventListener('touchend', (e)=>{
+    e.preventDefault();
+    if(paused) return;
+    const now = performance.now();
+
+    if(twoFingerTapTimer){
+      const dt = now - twoFingerTapTimer;
+      twoFingerTapTimer = 0;
+      if(dt < 240){
+        tryShield();
+        return;
+      }
+    }
+
+    const list = [...e.changedTouches];
+    const t = list.find(tt => tt.identifier === pointer.id);
+    if(!t || !pointer.active) return;
+
+    const dur = now - pointer.startT;
+    const total = Math.hypot(pointer.x-pointer.startX, pointer.y-pointer.startY);
+    const speed = Math.hypot(pointer.vx, pointer.vy);
+    const fastSwipe = (dur < 220 && total > 55) || (speed > 1.25 && total > 45);
+
+    if(fastSwipe){
+      tryDash(pointer.x - pointer.startX, pointer.y - pointer.startY);
+    }
+
+    pointer.active = false;
+    pointer.id = null;
+    clearMoveTarget();
+  }, {passive:false});
+
+  canvas.addEventListener('touchcancel', (e)=>{
+    e.preventDefault();
+    pointer.active=false;
+    pointer.id=null;
+    clearMoveTarget();
+    twoFingerTapTimer=0;
+  }, {passive:false});
+
+  // ---------- gameplay update ----------
+  function clampToArena(){
+    const pad=world.pad;
+    player.x = clamp(player.x, pad, world.w()-pad);
+    player.y = clamp(player.y, world.topPad+pad, world.h()-pad);
+  }
+
+  function dealEnemyDamage(e, dmg, crit=false){
+    e.hp -= dmg;
+    e.hitFlash = 0.10;
+    hitBurst(e.x,e.y,crit);
+    addDamageText(e.x, e.y - e.r - 10, dmg, crit, false);
+  }
+
+  function maybeDropCoin(x,y){
+    // базовый дроп: 1 монета иногда; с dropPlus чаще
+    const chance = 0.18 + (S.dropPlus ? 0.20 : 0);
+    if(Math.random() < chance){
+      coinsDrops.push({ x, y, vx:rnd(-60,60), vy:rnd(-140,-60), t:0, life:3.5, val: 10 + Math.floor(S.level*0.4) });
+    }
+  }
+
+  function updateCoins(dt){
+    // монеты летят к игроку если магнит
+    const mag = S.magnet ? 1 : 0;
+    for(let i=coinsDrops.length-1;i>=0;i--){
+      const c = coinsDrops[i];
+      c.t += dt;
+      c.x += c.vx*dt;
+      c.y += c.vy*dt;
+      c.vy += 520*dt;
+      c.vx *= Math.pow(0.08, dt);
+
+      const d = dist(c.x,c.y, player.x,player.y);
+      const pull = mag ? clamp((240 - d)/240, 0, 1) : clamp((120 - d)/120, 0, 1);
+      if(pull>0){
+        const dx = (player.x-c.x)/(d||1);
+        const dy = (player.y-c.y)/(d||1);
+        c.x += dx * pull * 420 * dt;
+        c.y += dy * pull * 420 * dt;
+      }
+
+      if(d < player.r + 16){
+        addCoins(c.val);
+        coinsDrops.splice(i,1);
+        continue;
+      }
+      if(c.t > c.life) coinsDrops.splice(i,1);
+    }
+  }
+
+  function updateParticles(dt){
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i];
+      p.t += dt;
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vy += 520*dt;
+      if(p.t >= p.life) particles.splice(i,1);
+    }
+    for(let i=confetti.length-1;i>=0;i--){
+      const c=confetti[i];
+      c.t += dt;
+      c.vy += c.g * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.vx *= Math.pow(0.04, dt);
+      c.rot += c.spin * dt;
+      if(c.t >= c.life) confetti.splice(i,1);
+    }
+    for(let i=damageTexts.length-1;i>=0;i--){
+      const d=damageTexts[i];
+      d.t += dt;
+      d.x += d.vx * dt * 60;
+      d.y += d.vy * dt;
+      d.vy += 60*dt;
+      if(d.t >= d.life) damageTexts.splice(i,1);
+    }
+  }
+
+  function updateBullets(dt){
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      b.t += dt;
+      b.x += b.vx*dt;
+      b.y += b.vy*dt;
+
+      // enemy bullets hit player
+      if(b.enemyBullet){
+        const d = dist(b.x,b.y, player.x,player.y);
+        if(d < b.r + player.r){
+          bullets.splice(i,1);
+          takeDamage(b.dmg);
+          fireConfetti(b.x,b.y,14,0.6,false,true);
+          continue;
+        }
+        if(b.t >= b.life) { bullets.splice(i,1); continue; }
+        continue;
+      }
+
+      // player bullets hit enemies
+      let hitSomething = false;
+      for(let j=enemies.length-1;j>=0;j--){
+        const e = enemies[j];
+        const d = dist(b.x,b.y,e.x,e.y);
+        if(d < b.r + e.r){
+          hitSomething = true;
+          dealEnemyDamage(e, b.dmg, b.crit);
+          // knockback
+          const nx=(e.x-b.x)/(d||1), ny=(e.y-b.y)/(d||1);
+          e.vx += nx*120; e.vy += ny*120;
+
+          if(b.pierce > 0){
+            b.pierce -= 1; // пробитие
+          }else{
+            bullets.splice(i,1);
+          }
+          break;
+        }
+      }
+
+      if(i >= bullets.length) continue;
+
+      if(b.t >= b.life || b.x < -80 || b.x > world.w()+80 || b.y < -80 || b.y > world.h()+80){
+        bullets.splice(i,1);
+      }
+    }
+  }
+
+  function updateSaws(dt){
+    if(!S.weapons.owned.saw) return;
+    ensureSaws();
+
+    const st = S.weapons.saw;
+    const count = st.count;
+    const radius = 40 + (st.radius-1)*10;
+    const dmg = 10 + (st.dmg-1)*7;
+
+    const spin = 4.2 + count*0.2;
+
+    for(let i=0;i<sawBlades.length;i++){
+      const blade = sawBlades[i];
+      blade.ang += spin * dt;
+      blade.hitCd = Math.max(0, blade.hitCd - dt);
+
+      const bx = player.x + Math.cos(blade.ang + (i*(Math.PI*2)/count)) * radius;
+      const by = player.y + Math.sin(blade.ang + (i*(Math.PI*2)/count)) * radius;
+
+      // hit enemies
+      if(blade.hitCd<=0){
+        for(const e of enemies){
+          const d = dist(bx,by,e.x,e.y);
+          if(d < e.r + 10){
+            blade.hitCd = 0.12;
+            dealEnemyDamage(e, dmg, false);
+            break;
+          }
+        }
+      }
+
+      blade._x = bx; blade._y = by;
+    }
+  }
+
+  function weaponFire(dt){
+    const e = nearestEnemy();
+    if(!e) return;
+
+    const w = weaponName();
+
+    if(w === 'gun'){
+      gunTimer -= dt;
+      if(gunTimer <= 0){
+        const st = S.weapons.gun;
+        const dmg = 14 + (st.dmg-1)*6;
+        const multi = st.multi;
+        const critChance = 0.06;
+
+        // направление
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const d = Math.hypot(dx,dy)||1;
+        const baseAng = Math.atan2(dy,dx);
+
+        for(let k=0;k<multi;k++){
+          const spread = (multi>1) ? (k-(multi-1)/2)*0.10 : 0;
+          const ang = baseAng + spread;
+          const sp = 620;
+          const crit = Math.random() < critChance;
+          bullets.push({
+            x: player.x + Math.cos(ang)*(player.r+8),
+            y: player.y + Math.sin(ang)*(player.r+8),
+            vx: Math.cos(ang)*sp,
+            vy: Math.sin(ang)*sp,
+            r: 5,
+            life: 1.4,
+            t: 0,
+            dmg: crit ? dmg*1.85 : dmg,
+            crit,
+            pierce: 0,
+            enemyBullet:false
+          });
+        }
+
+        gunTimer = gunFireDelay();
+      }
+    }
+
+    if(w === 'needle'){
+      needleTimer -= dt;
+      if(needleTimer <= 0){
+        const st = S.weapons.needle;
+        const dmg = 18 + (st.dmg-1)*8;
+        const sp = 760 + (st.spd-1)*70;
+        const pierce = st.pierce;
+
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const d = Math.hypot(dx,dy)||1;
+        const ang = Math.atan2(dy,dx);
+
+        bullets.push({
+          x: player.x + Math.cos(ang)*(player.r+8),
+          y: player.y + Math.sin(ang)*(player.r+8),
+          vx: Math.cos(ang)*sp,
+          vy: Math.sin(ang)*sp,
+          r: 4,
+          life: 1.2,
+          t: 0,
+          dmg,
+          crit:false,
+          pierce,
+          enemyBullet:false
+        });
+
+        needleTimer = needleFireDelay();
+      }
+    }
+
+    if(w === 'saw'){
+      // пилы не стреляют, они режут через updateSaws
+    }
+  }
+
+  function updatePlayer(dt){
+    player.dashCd = Math.max(0, player.dashCd - dt);
+    player.shieldCd = Math.max(0, player.shieldCd - dt);
+
+    if(player.shieldTime > 0){
+      player.shieldTime -= dt;
+      if(player.shieldTime <= 0) player.shieldTime = 0;
+    }
+
+    if(player.dashTime > 0){
+      player.dashTime -= dt;
+      player.vx = player.dashVx;
+      player.vy = player.dashVy;
+    }else{
+      if(moveTarget.active){
+        const dx = moveTarget.x - player.x;
+        const dy = moveTarget.y - player.y;
+        const d = Math.hypot(dx,dy) || 1;
+
+        const speed = 260 + S.level*0.6;
+        const tx = (dx/d) * speed * clamp(d/120, 0.30, 1.15);
+        const ty = (dy/d) * speed * clamp(d/120, 0.30, 1.15);
+
+        player.vx += (tx - player.vx) * (1 - Math.pow(0.001, dt));
+        player.vy += (ty - player.vy) * (1 - Math.pow(0.001, dt));
+      }else{
+        player.vx *= Math.pow(0.0008, dt);
+        player.vy *= Math.pow(0.0008, dt);
+      }
+    }
+
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+    clampToArena();
+
+    player.hitFlash = Math.max(0, player.hitFlash - dt);
+  }
+
+  function maybeComplete(){
+    if(enemies.length !== 0) return;
+
+    if(isBossLevel(S.level)){
+      // ключи за босса
+      let k=1;
+      if(Math.random() < 0.22) k=2;
+      addKeys(k);
+      showToast(`Босс: 🔑 +${k}`);
+      fireConfetti(innerWidth*0.5, innerHeight*0.40, 44, 0.95, true);
+
+      // next level
+      S.level += 1;
+      S.wp += 1 + (S.wpBoost ? 1 : 0);
+
+      startLevel();
+      save();
+      return;
+    }
+
+    wave += 1;
+    if(wave <= 3){
+      enemiesToSpawn = 4 + Math.floor(S.level*0.65);
+      spawnWave();
+    }else{
+      addXp(80 + Math.floor(S.level*18));
+      addCoins(60 + Math.floor(S.level*10));
+      S.level += 1;
+      S.wp += 1 + (S.wpBoost ? 1 : 0);
+      startLevel();
+      save();
+    }
+  }
+
+  // ---------- draw ----------
+  function drawBg(){
+    const w=world.w(), h=world.h();
+    ctx.fillStyle = '#050611';
+    ctx.fillRect(0,0,w,h);
+
+    ctx.globalAlpha = 0.10;
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = 1;
+    const step = 44;
+    ctx.beginPath();
+    for(let x=0;x<w;x+=step){ ctx.moveTo(x,0); ctx.lineTo(x,h); }
+    for(let y=0;y<h;y+=step){ ctx.moveTo(0,y); ctx.lineTo(w,y); }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    const pad=world.pad;
+    ctx.strokeStyle = 'rgba(255,255,255,.14)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, world.topPad+pad, w-pad*2, h-(pad*2+world.topPad));
+  }
+
+  function drawCircle(x,y,r,color, glow=0){
+    ctx.save();
+    ctx.shadowColor = glow>0 ? color : 'rgba(0,0,0,.6)';
+    ctx.shadowBlur = glow>0 ? glow : 12;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHpBar(x,y,w,h,ratio,color){
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.32)';
+    ctx.strokeStyle='rgba(255,255,255,.10)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    const rr = 999;
+    roundRect(ctx,x,y,w,h,rr);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    roundRect(ctx,x,y,w*clamp(ratio,0,1),h,rr);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(c,x,y,w,h,r){
+    const rr=Math.min(r,w/2,h/2);
+    c.moveTo(x+rr,y);
+    c.arcTo(x+w,y,x+w,y+h,rr);
+    c.arcTo(x+w,y+h,x,y+h,rr);
+    c.arcTo(x,y+h,x,y,rr);
+    c.arcTo(x,y,x+w,y,rr);
+    c.closePath();
+  }
+
+  function draw(){
+    drawBg();
+
+    // coins
+    for(const c of coinsDrops){
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      drawCircle(c.x,c.y, 7, '#FFD56A', 14);
+      ctx.restore();
+    }
+
+    // bullets
+    for(const b of bullets){
+      if(b.enemyBullet){
+        drawCircle(b.x,b.y,b.r,'#FF6B8B', 18);
+      }else{
+        drawCircle(b.x,b.y,b.r, b.pierce>0 ? '#7AA7FF' : '#FFFFFF', 14);
+      }
+    }
+
+    // enemies
+    for(const e of enemies){
+      const isBoss = e.kind==='boss';
+      const c = isBoss ? '#FF6B8B' : (e.kind==='runner' ? '#FFD56A' : (e.kind==='brute' ? '#7CFFB2' : '#FFFFFF'));
+      drawCircle(e.x,e.y,e.r+3,'rgba(0,0,0,.42)', 0);
+      drawCircle(e.x,e.y,e.r,c, isBoss?26:0);
+
+      if(isBoss){
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = 'rgba(255,213,106,.92)';
+        ctx.font = '900 12px system-ui';
+        ctx.textAlign='center';
+        ctx.fillText('BOSS', e.x, e.y - e.r - 18);
+        ctx.restore();
+      }
+
+      drawHpBar(e.x-30, e.y-e.r-14, 60, 8, e.hp/e.maxHp, isBoss?'rgba(255,107,139,.95)':'rgba(255,255,255,.75)');
+    }
+
+    // saw blades
+    if(S.weapons.owned.saw){
+      for(const blade of sawBlades){
+        if(blade._x==null) continue;
+        drawCircle(blade._x, blade._y, 10, '#B47CFF', 18);
+      }
+    }
+
+    // player
+    drawCircle(player.x,player.y,player.r+3,'rgba(0,0,0,.45)', 0);
+    drawCircle(player.x,player.y,player.r,'#FFFFFF', 18);
+
+    if(player.shield>0){
+      ctx.save();
+      ctx.globalAlpha = 0.55 + 0.25*Math.sin(performance.now()/130);
+      ctx.strokeStyle = 'rgba(180,124,255,.98)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r+11, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // particles
+    for(const p of particles){
+      const a=1-(p.t/p.life);
+      ctx.globalAlpha=a;
+      ctx.fillStyle=p.crit ? 'rgba(255,213,106,1)' : 'rgba(255,255,255,1)';
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha=1;
+
+    // confetti
+    for(const c of confetti){
+      const a = 1 - (c.t / c.life);
+      ctx.globalAlpha = Math.max(0,a);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rot);
+      ctx.fillStyle = c.col;
+      if(c.rect){
+        ctx.fillRect(-c.r*1.3, -c.r*0.7, c.r*2.6, c.r*1.4);
+      }else{
+        ctx.beginPath();
+        ctx.arc(0,0,c.r,0,Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha=1;
+
+    // damage numbers
+    ctx.save();
+    ctx.textAlign='center';
+    for(const d of damageTexts){
+      const a = 1 - (d.t/d.life);
+      ctx.globalAlpha = Math.max(0,a);
+      if(d.isPlayerHit){
+        ctx.fillStyle = 'rgba(255,107,139,1)';
+        ctx.font = '900 14px system-ui';
+        ctx.fillText('-' + d.txt, d.x, d.y);
+      }else{
+        ctx.fillStyle = d.crit ? 'rgba(255,213,106,1)' : 'rgba(255,255,255,1)';
+        ctx.font = d.crit ? '950 16px system-ui' : '900 14px system-ui';
+        ctx.fillText(d.txt, d.x, d.y);
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---------- UI update ----------
+  function stageName(){
+    return isBossLevel(S.level) ? '— БОСС' : `— Волна ${wave}`;
+  }
+
+  function updateUI(){
+    uiLevel.textContent = S.level;
+    uiStage.textContent = stageName();
+    uiCoins.textContent = S.coins;
+    uiKeys.textContent = S.keys;
+    uiWP.textContent = S.wp;
+    uiWeapon.textContent = S.weapons.equipped;
+
+    uiHpText.textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    uiShieldText.textContent = `${Math.ceil(player.shield)}`;
+    uiHpBar.style.width = `${clamp((player.hp/player.maxHp)*100,0,100)}%`;
+    uiShieldBar.style.width = `${clamp(((player.shield/player.shieldMax)||0)*100,0,100)}%`;
+
+    const need = xpNeed(S.level);
+    uiXpText.textContent = `${S.xp}/${need}`;
+    uiXpBar.style.width = `${clamp((S.xp/need)*100,0,100)}%`;
+
+    uiShopCoins.textContent = S.coins;
+    uiMagnet.textContent = S.magnet ? 'ON' : 'OFF';
+    uiDrop.textContent = S.dropPlus ? 'ON' : 'OFF';
+    uiWPBoost.textContent = S.wpBoost ? 'ON' : 'OFF';
+
+    uiWCoins.textContent = S.coins;
+    uiWWP.textContent = S.wp;
+    uiWSelected.textContent = S.weapons.equipped;
+
+    ownGun.textContent = S.weapons.owned.gun ? '1' : '0';
+    ownNeedle.textContent = S.weapons.owned.needle ? '1' : '0';
+    ownSaw.textContent = S.weapons.owned.saw ? '1' : '0';
+
+    gunDmg.textContent = S.weapons.gun.dmg;
+    gunRate.textContent = S.weapons.gun.rate;
+    gunMulti.textContent = S.weapons.gun.multi;
+
+    needleDmg.textContent = S.weapons.needle.dmg;
+    needleSpd.textContent = S.weapons.needle.spd;
+    needlePierce.textContent = S.weapons.needle.pierce;
+
+    sawDmg.textContent = S.weapons.saw.dmg;
+    sawCount.textContent = S.weapons.saw.count;
+    sawRadius.textContent = S.weapons.saw.radius;
+
+    uiChestCoins.textContent = S.coins;
+    uiChestKeys.textContent = S.keys;
+
+    // cooldown chips
+    if(player.dashCd > 0){
+      chipDash.classList.add('cool');
+      cdDash.textContent = player.dashCd.toFixed(1);
+    }else chipDash.classList.remove('cool');
+
+    if(player.shieldCd > 0){
+      chipShield.classList.add('cool');
+      cdShield.textContent = player.shieldCd.toFixed(1);
+    }else chipShield.classList.remove('cool');
+
+    setAdminUI();
+  }
+
+  // ---------- death ----------
+  function handleDeath(){
+    paused = true;
+    setCanvasEnabled(false);
+    setTimeout(()=>{
+      alert("НУ ТЫ И ЛОХ 😈\n(шутка)\n\nОК — начнёшь уровень заново.");
+      paused = false;
+      setCanvasEnabled(true);
+      startLevel();
+      updateUI();
+      save();
+    }, 30);
+  }
+
+  // ---------- main loop ----------
+  let last = performance.now();
+  function loop(now){
+    const dt = clamp((now-last)/1000, 0, 0.033);
+    last = now;
+
+    if(!paused){
+      updatePlayer(dt);
+
+      // timers
+      player.hitFlash = Math.max(0, player.hitFlash - dt);
+      player.dashCd = Math.max(0, player.dashCd - dt);
+      player.shieldCd = Math.max(0, player.shieldCd - dt);
+
+      if(player.dashTime > 0){
+        // dash already applied in updatePlayer
+      }
+
+      if(player.shieldTime > 0){
+        player.shieldTime -= dt;
+        if(player.shieldTime <= 0) player.shieldTime = 0;
+      }
+
+      // enemies
+      for(const e of enemies) enemyUpdate(e,dt);
+
+      // weapons
+      updateSaws(dt);
+      weaponFire(dt);
+
+      // bullets/coins/particles
+      updateBullets(dt);
+      updateCoins(dt);
+      updateParticles(dt);
+
+      // remove dead enemies + drops/xp
+      for(let i=enemies.length-1;i>=0;i--){
+        const e = enemies[i];
+        if(e.hp <= 0){
+          enemies.splice(i,1);
+          const baseXp = e.kind==='boss' ? 210 : 20;
+          addXp(baseXp + Math.floor(S.level*8));
+
+          // coin drop
+          const bonus = e.kind==='boss' ? 180 : (12 + Math.floor(S.level*0.5));
+          addCoins(Math.floor(bonus*0.25)); // часть сразу
+          maybeDropCoin(e.x,e.y);
+
+          if(S.dropPlus && Math.random()<0.22){
+            addCoins(10 + Math.floor(S.level*0.5));
+          }
+
+          if(e.kind==='boss'){
+            fireConfetti(e.x,e.y,54,1.0,true);
+            showToast('Босс уничтожен 😈');
+          }
+        }
+      }
+
+      // level complete
+      maybeComplete();
+
+      // player death
+      if(player.hp <= 0){
+        player.hp = 0;
+        handleDeath();
+      }
+
+      updateUI();
+    }
+
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- buttons ----------
+  $('btnPlay').addEventListener('click', ()=>{
+    startOverlay.classList.remove('show');
+    paused = false;
+    setCanvasEnabled(true);
+    startLevel();
+    updateUI();
+    save();
+    showToast('Поехали 😈');
+  });
+
+  $('btnHelp').addEventListener('click', ()=>{
+    alert(
+      "Управление:\n" +
+      "— Веди пальцем: движение\n" +
+      "— Быстрый свайп: рывок\n" +
+      "— Тап 2 пальцами: щит\n\n" +
+      "Оружие:\n" +
+      "— Авто-атака ближайшего врага\n" +
+      "— Прокачка оружия за WP\n"
+    );
+  });
+
+  $('btnResetSave').addEventListener('click', ()=>{
+    if(!confirm("Сбросить весь прогресс?")) return;
+    localStorage.removeItem(SAVE_KEY);
+    S = loadSave();
+    updateUI();
+    startLevel();
+    showToast('Сброшено');
+  });
+
+  btnMenu.addEventListener('click', ()=> showOverlay(menuOverlay));
+  btnShop.addEventListener('click', ()=> showOverlay(shopOverlay));
+  btnWeapons.addEventListener('click', ()=> showOverlay(weaponsOverlay));
+  btnChest.addEventListener('click', ()=> showOverlay(chestOverlay));
+  btnAdmin.addEventListener('click', ()=> showOverlay(adminOverlay));
+
+  btnResume.addEventListener('click', ()=> hideOverlay('menuOverlay'));
+  btnRestart.addEventListener('click', ()=>{
+    hideOverlay('menuOverlay');
+    startLevel();
+    save();
+    showToast('Новый забег');
+  });
+
+  // ---------- shop buys ----------
+  function pay(cost){
+    if(S.coins < cost){ showToast('Не хватает 💰'); return false; }
+    S.coins -= cost; return true;
+  }
+
+  buyMagnet.addEventListener('click', ()=>{
+    if(S.magnet){ showToast('Уже куплено'); return; }
+    if(!pay(300)) return;
+    S.magnet = 1;
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 30, 0.85, true);
+    showToast('Магнит: ON');
+    updateUI(); save();
+  });
+
+  buyDrop.addEventListener('click', ()=>{
+    if(S.dropPlus){ showToast('Уже куплено'); return; }
+    if(!pay(450)) return;
+    S.dropPlus = 1;
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 30, 0.85, true);
+    showToast('Дроп+: ON');
+    updateUI(); save();
+  });
+
+  buyKey.addEventListener('click', ()=>{
+    if(!pay(250)) return;
+    addKeys(1);
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 26, 0.75, true);
+    showToast('🔑 +1');
+    updateUI(); save();
+  });
+
+  buyWPBoost.addEventListener('click', ()=>{
+    if(S.wpBoost){ showToast('Уже куплено'); return; }
+    if(!pay(600)) return;
+    S.wpBoost = 1;
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 34, 0.9, true);
+    showToast('WP+: ON');
+    updateUI(); save();
+  });
+
+  // ---------- weapons buy/equip ----------
+  function buyWeapon(key, cost){
+    if(S.weapons.owned[key]){ showToast('Уже куплено'); return; }
+    if(!pay(cost)) return;
+    S.weapons.owned[key] = true;
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 44, 0.95, true);
+    showToast(`Куплено: ${key}`);
+    updateUI(); save();
+  }
+  function equipWeapon(key){
+    if(!S.weapons.owned[key]){ showToast('Сначала купи'); return; }
+    S.weapons.equipped = key;
+    if(key==='saw') ensureSaws();
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, 20, 0.7, false, true);
+    showToast(`Надето: ${key}`);
+    updateUI(); save();
+  }
+
+  buyGun.addEventListener('click', ()=> buyWeapon('gun', 200));
+  buyNeedle.addEventListener('click', ()=> buyWeapon('needle', 300));
+  buySaw.addEventListener('click', ()=> buyWeapon('saw', 400));
+
+  equipGun.addEventListener('click', ()=> equipWeapon('gun'));
+  equipNeedle.addEventListener('click', ()=> equipWeapon('needle'));
+  equipSaw.addEventListener('click', ()=> equipWeapon('saw'));
+
+  // ---------- weapon upgrades (WP) ----------
+  function spendWP(){
+    if(S.wp<=0){ showToast('Нет WP'); return false; }
+    S.wp -= 1; return true;
+  }
+
+  upGunDmg.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.gun.dmg += 1;
+    showToast('Gun DMG +1');
+    updateUI(); save();
+  });
+  upGunRate.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.gun.rate += 1;
+    showToast('Gun RATE +');
+    updateUI(); save();
+  });
+  upGunMulti.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.gun.multi = clamp(S.weapons.gun.multi + 1, 1, 5);
+    showToast('Gun MULTI +1');
+    updateUI(); save();
+  });
+
+  upNeedleDmg.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.needle.dmg += 1;
+    showToast('Needle DMG +1');
+    updateUI(); save();
+  });
+  upNeedleSpd.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.needle.spd += 1;
+    showToast('Needle SPD +');
+    updateUI(); save();
+  });
+  upNeedlePierce.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.needle.pierce = clamp(S.weapons.needle.pierce + 1, 0, 6);
+    showToast('Needle PIERCE +1');
+    updateUI(); save();
+  });
+
+  upSawDmg.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.saw.dmg += 1;
+    showToast('Saw DMG +1');
+    updateUI(); save();
+  });
+  upSawCount.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.saw.count = clamp(S.weapons.saw.count + 1, 1, 6);
+    ensureSaws();
+    showToast('Saw COUNT +1');
+    updateUI(); save();
+  });
+  upSawRadius.addEventListener('click', ()=>{
+    if(!spendWP()) return;
+    S.weapons.saw.radius = clamp(S.weapons.saw.radius + 1, 1, 6);
+    showToast('Saw RADIUS +');
+    updateUI(); save();
+  });
+
+  // ---------- chests ----------
+  const CHEST = {
+    common:{ keyCost:1, coinCost:200, name:'Обычный' },
+    rare:{ keyCost:2, coinCost:350, name:'Редкий' },
+    legend:{ keyCost:3, coinCost:500, name:'Легендарный' }
+  };
+
+  function randPick(arr){
+    const total = arr.reduce((s,x)=>s+x.w,0);
+    let r = Math.random()*total;
+    for(const it of arr){ r -= it.w; if(r<=0) return it; }
+    return arr[arr.length-1];
+  }
+
+  function openChest(tier){
+    const cfg = CHEST[tier];
+
+    if(S.keys >= cfg.keyCost){
+      S.keys -= cfg.keyCost;
+    }else{
+      if(S.coins < cfg.coinCost){
+        showToast(`Не хватает 🔑 или 💰`);
+        return;
+      }
+      S.coins -= cfg.coinCost;
+    }
+
+    const table = {
+      common:[
+        {w:50, fn:()=>{const c=200+Math.floor(rnd(0,160)); addCoins(c); return `💰 +${c}`;}},
+        {w:20, fn:()=>{S.wp+=1; return `⚙️ WP +1`;}},
+        {w:10, fn:()=>{S.wp+=2; return `⚙️ WP +2`;}},
+        {w:12, fn:()=>{addKeys(1); return `🔑 +1`;}},
+        {w:8,  fn:()=>{const c=450+Math.floor(rnd(0,260)); addCoins(c); return `💰 +${c}`;}},
+      ],
+      rare:[
+        {w:36, fn:()=>{const c=350+Math.floor(rnd(0,240)); addCoins(c); return `💰 +${c}`;}},
+        {w:26, fn:()=>{S.wp+=2; return `⚙️ WP +2`;}},
+        {w:14, fn:()=>{S.wp+=3; return `⚙️ WP +3`;}},
+        {w:14, fn:()=>{addKeys(1); return `🔑 +1`;}},
+        {w:10, fn:()=>{addKeys(2); return `🔑 +2`;}},
+      ],
+      legend:[
+        {w:22, fn:()=>{const c=600+Math.floor(rnd(0,420)); addCoins(c); return `💰 +${c}`;}},
+        {w:34, fn:()=>{S.wp+=4; return `⚙️ WP +4`;}},
+        {w:18, fn:()=>{S.wp+=6; return `⚙️ WP +6`;}},
+        {w:16, fn:()=>{addKeys(2); return `🔑 +2`;}},
+        {w:10, fn:()=>{addKeys(3); return `🔑 +3`;}},
+      ]
+    };
+
+    const pick = randPick(table[tier]);
+    const text = pick.fn();
+
+    lootText.textContent = `Сундук "${cfg.name}": ${text}`;
+    showToast(`🎉 ${text}`);
+    fireConfetti(innerWidth*0.5, innerHeight*0.45, tier==='legend'?58:44, tier==='legend'?1.0:0.85, true);
+
+    updateUI(); save();
+  }
+
+  openCommon.addEventListener('click', ()=> openChest('common'));
+  openRare.addEventListener('click', ()=> openChest('rare'));
+  openLegend.addEventListener('click', ()=> openChest('legend'));
+
+  // ---------- admin ----------
+  function setAdminUI(){
+    const on=!!S.adminUnlocked;
+    adminState.textContent = `Статус: ${on?'🔓 открыто':'🔒 закрыто'}`;
+    const arr=[giveCoins1,giveCoins2,giveKeys1,giveKeys2,giveWP1,giveWP2];
+    arr.forEach(b=>{
+      b.disabled = !on;
+      b.style.opacity = !on ? 0.55 : 1;
+    });
+  }
+  function guardAdmin(){
+    if(!S.adminUnlocked){ alert('Админка закрыта. Введи пароль.'); return false; }
+    return true;
+  }
+
+  adminLogin.addEventListener('click', ()=>{
+    const pass = (adminPass.value||'').trim();
+    if(pass === ADMIN_PASSWORD){
+      S.adminUnlocked = true;
+      adminPass.value = '';
+      setAdminUI();
+      updateUI(); save();
+      showToast('Админка: открыто 🔓');
+      fireConfetti(innerWidth*0.5, innerHeight*0.45, 38, 0.85, false, true);
+    }else{
+      alert('Неверный пароль 😈');
+    }
+  });
+
+  adminLogout.addEventListener('click', ()=>{
+    S.adminUnlocked = false;
+    setAdminUI();
+    updateUI(); save();
+    showToast('Админка: закрыто 🔒');
+  });
+
+  giveCoins1.addEventListener('click', ()=>{ if(!guardAdmin()) return; addCoins(500); updateUI(); save(); showToast('💰 +500'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.7, true); });
+  giveCoins2.addEventListener('click', ()=>{ if(!guardAdmin()) return; addCoins(2000); updateUI(); save(); showToast('💰 +2000'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 30, 0.85, true); });
+
+  giveKeys1.addEventListener('click', ()=>{ if(!guardAdmin()) return; addKeys(5); updateUI(); save(); showToast('🔑 +5'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.75, true); });
+  giveKeys2.addEventListener('click', ()=>{ if(!guardAdmin()) return; addKeys(20); updateUI(); save(); showToast('🔑 +20'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 34, 0.9, true); });
+
+  giveWP1.addEventListener('click', ()=>{ if(!guardAdmin()) return; S.wp += 5; updateUI(); save(); showToast('⚙️ WP +5'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 22, 0.75, false, true); });
+  giveWP2.addEventListener('click', ()=>{ if(!guardAdmin()) return; S.wp += 25; updateUI(); save(); showToast('⚙️ WP +25'); fireConfetti(innerWidth*0.5, innerHeight*0.45, 34, 0.9, false, true); });
+
+  // ---------- hud buttons ----------
+  btnShop.addEventListener('click', ()=> showOverlay(shopOverlay));
+  btnWeapons.addEventListener('click', ()=> showOverlay(weaponsOverlay));
+  btnChest.addEventListener('click', ()=> showOverlay(chestOverlay));
+  btnMenu.addEventListener('click', ()=> showOverlay(menuOverlay));
+
+  // ---------- init ----------
+  // старт: пока старт-оверлей — canvas выключен, чтобы UI не бесился
+  setCanvasEnabled(false);
+  setAdminUI();
+  updateUI();
+
+  // ---------- spawn initial wave when press play ----------
+  // (done in btnPlay)
+
+})();
+</script>
+</body>
+</html>
